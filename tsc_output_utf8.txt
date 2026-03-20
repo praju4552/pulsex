@@ -1,0 +1,4 @@
+﻿src/app/components/prototyping/LaserCutting.tsx(3,1): error TS6133: 'XPulseLogo' is declared but its value is never read.
+src/app/components/prototyping/LaserCutting.tsx(4,10): error TS6133: 'Sparkles' is declared but its value is never read.
+src/app/components/prototyping/ProjectDevelopment.tsx(3,1): error TS6133: 'XPulseLogo' is declared but its value is never read.
+src/app/components/prototyping/SEMTEM.tsx(3,1): error TS6133: 'XPulseLogo' is declared but its value is never read.

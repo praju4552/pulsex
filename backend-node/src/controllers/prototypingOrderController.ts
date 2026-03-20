@@ -1,0 +1,238 @@
+import { Request, Response } from 'express';
+import prisma from '../db';
+import { generateId } from '../utils/idGenerator';
+import { generateOrderPDF } from '../utils/pdfGenerator';
+
+// POST /api/prototyping-orders — create new order
+export async function createPrototypingOrder(req: Request, res: Response) {
+  try {
+    const {
+      firstName, lastName, email, phone,
+      streetAddress, apartment, city, state, zip, country,
+      serviceType, specifications, specSummary,
+      shippingMethod, shippingCost,
+      pcbPrice, totalAmount,
+      userId,
+    } = req.body;
+
+    // Basic validation
+    const required = { firstName, lastName, email, phone, streetAddress, city, state, zip, country };
+    const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
+    if (missing.length > 0) {
+      return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+    }
+
+    // 1. Generate formatted IDs
+    const salesOrderId = await generateId('SO');
+    const invoiceId = await generateId('INV');
+    const projectId = await generateId('PID');
+    
+    // Dynamic job ID based on service type
+    const jobType = serviceType === '3D Printing' ? '3D' : 'PCB';
+    const jobId = await generateId(jobType);
+
+    const order = await prisma.prototypingOrder.create({
+      data: {
+        firstName, lastName, email, phone,
+        streetAddress, apartment: apartment || null,
+        city, state, zip, country,
+        serviceType: serviceType || 'PCB Printing',
+        specifications: specifications || {},
+        specSummary: specSummary || '',
+        shippingMethod: shippingMethod || 'Standard',
+        shippingCost: Math.round(shippingCost || 0),
+        pcbPrice: Math.round(pcbPrice || 0),
+        totalAmount: Math.round(totalAmount || 0),
+        userId: userId || null,
+        orderStatus: 'PENDING',
+        paymentStatus: 'UNPAID',
+        salesOrderId,
+        invoiceId,
+        projectId,
+        jobId,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      order: {
+        id: order.id,
+        orderRef: order.orderRef,
+        orderStatus: order.orderStatus,
+        totalAmount: order.totalAmount,
+        createdAt: order.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[createPrototypingOrder]', err);
+    return res.status(500).json({ error: 'Failed to create order.' });
+  }
+}
+
+// GET /api/prototyping-orders — admin: list all orders
+export async function listPrototypingOrders(req: Request, res: Response) {
+  try {
+    const { status, payment, search, page = '1', limit = '50' } = req.query as Record<string, string>;
+    const pageInt = parseInt(page) || 1;
+    const limitInt = Math.min(parseInt(limit) || 50, 100);
+
+    const where: any = {};
+    if (status && status !== 'all') where.orderStatus = status.toUpperCase();
+    if (payment && payment !== 'all') where.paymentStatus = payment.toUpperCase();
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { orderRef: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.prototypingOrder.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (pageInt - 1) * limitInt,
+        take: limitInt,
+      }),
+      prisma.prototypingOrder.count({ where }),
+    ]);
+
+    return res.json({ orders, total, page: pageInt, totalPages: Math.ceil(total / limitInt) });
+  } catch (err) {
+    console.error('[listPrototypingOrders]', err);
+    return res.status(500).json({ error: 'Failed to fetch orders.' });
+  }
+}
+
+// GET /api/prototyping-orders/:id — admin: get single order detail
+export async function getPrototypingOrder(req: Request, res: Response) {
+  try {
+    const order = await prisma.prototypingOrder.findUnique({ where: { id: req.params.id } });
+    if (!order) return res.status(404).json({ error: 'Order not found.' });
+    return res.json(order);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch order.' });
+  }
+}
+
+// PATCH /api/prototyping-orders/:id — admin: update status / notes / payment
+export async function updatePrototypingOrder(req: Request, res: Response) {
+  try {
+    const { orderStatus, paymentStatus, adminNotes } = req.body;
+    const updated = await prisma.prototypingOrder.update({
+      where: { id: req.params.id },
+      data: {
+        ...(orderStatus ? { orderStatus } : {}),
+        ...(paymentStatus ? { paymentStatus } : {}),
+        ...(adminNotes !== undefined ? { adminNotes } : {}),
+      },
+    });
+    return res.json({ success: true, order: updated });
+  } catch (err) {
+    console.error('[updatePrototypingOrder]', err);
+    return res.status(500).json({ error: 'Failed to update order.' });
+  }
+}
+
+// GET /api/prototyping-orders/user/:userId — customer: list my orders
+export async function listUserPrototypingOrders(req: Request, res: Response) {
+  try {
+    const { userId } = req.params;
+
+    // Security: Verify the requesting user can only see their own orders
+    // SUPER_ADMIN can see any user's orders
+    const requestingUser = req.user as any;
+    const SUPER_ADMIN_EMAILS = ['prajwalshetty4552@gmail.com', 'pulsewritexsolutions@gmail.com'];
+    if (requestingUser?.role !== 'SUPER_ADMIN' || !SUPER_ADMIN_EMAILS.includes(requestingUser?.email)) {
+      if (requestingUser?.userId !== userId) {
+        return res.status(403).json({ error: 'Access denied: you can only view your own orders.' });
+      }
+    }
+
+    const orders = await prisma.prototypingOrder.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.json(orders);
+  } catch (err) {
+    console.error('[listUserPrototypingOrders]', err);
+    return res.status(500).json({ error: 'Failed to fetch your orders.' });
+  }
+}
+
+// GET /api/prototyping-orders/track/:orderRef — public: track order by ref
+export async function trackPrototypingOrder(req: Request, res: Response) {
+  try {
+    const { orderRef } = req.params;
+    const order = await prisma.prototypingOrder.findUnique({
+      where: { orderRef },
+      select: {
+        orderRef: true,
+        orderStatus: true,
+        paymentStatus: true,
+        createdAt: true,
+        updatedAt: true,
+        serviceType: true,
+        specSummary: true,
+        totalAmount: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found.' });
+    return res.json(order);
+  } catch (err) {
+    console.error('[trackPrototypingOrder]', err);
+    return res.status(500).json({ error: 'Failed to track order.' });
+  }
+}
+
+// GET /api/prototyping-orders/:id/download — secure download endpoints
+export async function downloadPrototypingDocument(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { type } = req.query; // 'INVOICE' or 'SALES_ORDER'
+
+    const order = await prisma.prototypingOrder.findUnique({ where: { id } });
+    if (!order) return res.status(404).json({ error: 'Order not found.' });
+
+    const filename = type === 'SALES_ORDER' 
+      ? `SalesOrder_${order.salesOrderId}.pdf` 
+      : `Invoice_${order.invoiceId}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    await generateOrderPDF(res, {
+      salesOrderId: order.salesOrderId || 'N/A',
+      invoiceId: order.invoiceId || 'N/A',
+      projectId: order.projectId || 'N/A',
+      jobId: order.jobId || 'N/A',
+      createdAt: order.createdAt,
+      firstName: order.firstName,
+      lastName: order.lastName,
+      email: order.email,
+      phone: order.phone,
+      streetAddress: order.streetAddress,
+      apartment: order.apartment || undefined,
+      city: order.city,
+      state: order.state,
+      zip: order.zip,
+      country: order.country,
+      serviceType: order.serviceType,
+      specSummary: order.specSummary,
+      totalAmount: order.totalAmount,
+      shippingCost: order.shippingCost,
+      pcbPrice: order.pcbPrice,
+      status: order.orderStatus,
+    }, (type as any));
+
+  } catch (err) {
+    console.error('[downloadPrototypingDocument]', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate PDF.' });
+    }
+  }
+}
+

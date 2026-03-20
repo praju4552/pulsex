@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "backupDate": "2026-02-26T06:57:23.199Z",
+    "description": "Full backup of Template module data",
+    "counts": {
+      "templateProject": 0,
+      "templateSection": 0,
+      "templateLesson": 0,
+      "templateContentBlock": 0,
+      "templateUserProjectProgress": 0,
+      "templateUserLessonProgress": 0
+    }
+  },
+  "data": {
+    "templateProject": [],
+    "templateSection": [],
+    "templateLesson": [],
+    "templateContentBlock": [],
+    "templateUserProjectProgress": [],
+    "templateUserLessonProgress": []
+  }
+}

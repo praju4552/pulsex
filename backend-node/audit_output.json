@@ -1,0 +1,36 @@
+{
+  "users": [
+    {
+      "id": "09045638-aef8-4ae7-b125-7e39c23f31c9",
+      "email": "user@example.com",
+      "role": "USER",
+      "institutionId": null,
+      "name": "Test Regular User"
+    },
+    {
+      "id": "b6914b1d-2c0e-4cad-9e96-55d753a71f02",
+      "email": "prajwalshetty4552@gmail.com",
+      "role": "SUPER_ADMIN",
+      "institutionId": null,
+      "name": "Prajwal (Super Admin)"
+    },
+    {
+      "id": "235fb8d9-38bc-4afb-859a-719071b2eafc",
+      "email": "eng22ec0084@dsu.edu.in",
+      "role": "INSTITUTION_ADMIN",
+      "institutionId": "7a9e643e-957e-4019-ada0-644e1ba6052c",
+      "name": "prajwal"
+    }
+  ],
+  "institutions": [
+    {
+      "id": "7a9e643e-957e-4019-ada0-644e1ba6052c",
+      "name": "echo school",
+      "email": "eng22ec0084@dsu.edu.in",
+      "contactNo": "7483810079",
+      "address": "Sri Nagara Arsikere",
+      "status": "PENDING",
+      "createdAt": "2026-03-10T07:37:26.055Z"
+    }
+  ]
+}

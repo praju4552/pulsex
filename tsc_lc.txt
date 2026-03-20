@@ -1,0 +1,3 @@
+﻿src/app/components/prototyping/LaserCutting.tsx(428,29): error TS2322: Type '(e: any) => void' is not assignable to type '() => void'.
+  Target signature provides too few arguments. Expected 1 or more, but got 0.
+src/app/components/prototyping/LaserCutting.tsx(428,38): error TS7006: Parameter 'e' implicitly has an 'any' type.

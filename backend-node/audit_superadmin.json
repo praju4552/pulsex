@@ -1,0 +1,9 @@
+{
+  "email": "prajwalshetty4552@gmail.com",
+  "role": "SUPER_ADMIN",
+  "passwordPrefix": "$2b$10$ynn",
+  "passwordLength": 60,
+  "isBcrypt": true,
+  "testedPassword": "4552",
+  "matches": false
+}

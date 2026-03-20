@@ -1,0 +1,9 @@
+Total users: 7
+
+user@example.com | USER | bcrypt=true | len=60 | inst=-
+kohil18@gmail.com | TEACHER | bcrypt=true | len=60 | inst=385a35fb-4d25-42f0-861f-9beca5e0f93c
+ram@gmail.com | TEACHER | bcrypt=true | len=60 | inst=385a35fb-4d25-42f0-861f-9beca5e0f93c
+eng22ec0084@dsu.edu.in | INSTITUTION_ADMIN | bcrypt=true | len=60 | inst=7a9e643e-957e-4019-ada0-644e1ba6052c
+123@gmail.com | STUDENT | bcrypt=true | len=60 | inst=7a9e643e-957e-4019-ada0-644e1ba6052c
+prajwalshetty4552@gmailcom | INSTITUTION_ADMIN | bcrypt=false | len=10 | inst=385a35fb-4d25-42f0-861f-9beca5e0f93c
+prajwalshetty4552@gmail.com | SUPER_ADMIN | bcrypt=true | len=60 | inst=385a35fb-4d25-42f0-861f-9beca5e0f93c

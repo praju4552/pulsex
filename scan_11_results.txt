@@ -1,0 +1,2 @@
+d:\pulsex(prototyping)\START_ALL_SERVERS.bat
+d:\pulsex(prototyping)\STOP_ALL_SERVERS.bat

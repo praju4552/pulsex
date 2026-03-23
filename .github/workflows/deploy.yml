@@ -42,6 +42,8 @@ jobs:
         node-version: 20
 
     - name: 🔨 Build Frontend
+      env:
+        VITE_API_URL: https://api.pulsewritexsolutions.com
       run: |
         npm install
         npm run build

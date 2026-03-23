@@ -67,6 +67,10 @@ export default function ThreeDPrinting() {
       })
       .catch(err => console.error('Failed to load pricing:', err));
   }, []);
+
+  // Auth User
+  const userStr = localStorage.getItem('prototypingUser');
+  const user = userStr ? JSON.parse(userStr) : null;
   
   // Configuration State
   const [config, setConfig] = useState({
@@ -195,14 +199,25 @@ export default function ThreeDPrinting() {
   const submitOrder = async () => {
     setStep('processing');
     try {
+      const selectedQuality = qualities.find(q => q.id === config.quality);
+      
+      const payloadConfig = {
+        ...config,
+        layerHeight: selectedQuality ? selectedQuality.layerHeight : 0.2
+      };
+
       const res = await fetch(`${API_BASE_URL}/three-d-printing/order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(user?.token ? { 'Authorization': `Bearer ${user.token}` } : {})
+        },
         body: JSON.stringify({
+          userId: user?.id,
           fileId,
-          config,
+          config: payloadConfig,
           price: price.total,
-          customerInfo: { firstName: 'User', lastName: 'Name', email: 'test@example.com', phone: '1234567890' }, // Placeholder
+          customerInfo: user ? { firstName: user.name?.split(' ')[0] || '', lastName: user.name?.split(' ').slice(1).join(' ') || '', email: user.email, phone: user.phone || '—' } : { firstName: 'Guest', lastName: 'User', email: 'guest@example.com', phone: '—' },
           shippingInfo: { 
             streetAddress: '123 Test St', 
             city: 'Test City', 

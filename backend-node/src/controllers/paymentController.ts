@@ -31,9 +31,10 @@ export const initiatePayment = async (req: Request, res: Response) => {
       currency: rzpOrder.currency,
       keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Payment initiation error:', err);
-    res.status(500).json({ error: 'Could not initiate payment' });
+    const apiError = err?.error?.description || err.message || JSON.stringify(err);
+    res.status(500).json({ error: `Razorpay Error: ${apiError}` });
   }
 };
 

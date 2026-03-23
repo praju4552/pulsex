@@ -4,6 +4,7 @@ import { Trash2, AlertCircle, CheckCircle2, Package, MapPin, Mail, Phone, User, 
 import { useNavigate } from 'react-router-dom';
 import { initiateRazorpayPayment } from '../../../services/paymentService';
 import { useEffect } from 'react';
+import { API_BASE_URL } from '../../../api/config';
 
 export default function PrototypingCart() {
   const navigate = useNavigate();
@@ -101,7 +102,7 @@ export default function PrototypingCart() {
           userId: JSON.parse(localStorage.getItem('prototypingUser') || '{}').id || null
         };
 
-        const res = await fetch('http://localhost:3001/api/prototyping-orders', {
+        const res = await fetch(`${API_BASE_URL}/prototyping-orders`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',

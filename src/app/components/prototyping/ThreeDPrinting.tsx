@@ -6,12 +6,11 @@ import {
   Check, ChevronRight, IndianRupee, CheckCircle2, Cpu, Settings
 } from 'lucide-react';
 import * as THREE from 'three';
+import { API_BASE_URL } from '../../../api/config';
 // @ts-ignore
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 // @ts-ignore
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-
-const BACKEND_URL = '';
 
 // Constants for pricing
 const INITIAL_MATERIALS = [
@@ -57,7 +56,7 @@ export default function ThreeDPrinting() {
   const [finishes, setFinishes] = useState(INITIAL_FINISHES);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/pricing/3d_pricing`)
+    fetch(`${API_BASE_URL}/pricing/3d_pricing`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.value) {
@@ -124,7 +123,7 @@ export default function ThreeDPrinting() {
       const formData = new FormData();
       formData.append('modelFile', uploadedFile);
       
-      const res = await fetch(`${BACKEND_URL}/api/three-d-printing/upload`, {
+      const res = await fetch(`${API_BASE_URL}/three-d-printing/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -143,7 +142,7 @@ export default function ThreeDPrinting() {
   const pollForMetadata = async (id: string) => {
     const poll = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/three-d-printing/status/${id}`);
+        const res = await fetch(`${API_BASE_URL}/three-d-printing/status/${id}`);
         const data = await res.json();
         
         if (data.file.uploadStatus === 'COMPLETED') {
@@ -196,7 +195,7 @@ export default function ThreeDPrinting() {
   const submitOrder = async () => {
     setStep('processing');
     try {
-      const res = await fetch(`${BACKEND_URL}/api/three-d-printing/order`, {
+      const res = await fetch(`${API_BASE_URL}/three-d-printing/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Package, Search, ChevronRight, Clock, CheckCircle2, Truck, AlertCircle, Loader2, FileDown, FileText, Download } from 'lucide-react';
 import { PrototypingHeader } from './PrototypingHeader';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../../api/config';
 
 interface Order {
   id: string;
@@ -31,7 +32,7 @@ export default function PrototypingOrders() {
 
     const fetchOrders = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/prototyping-orders/user/${user.id}`, {
+        const res = await fetch(`${API_BASE_URL}/prototyping-orders/user/${user.id}`, {
           headers: {
             'Authorization': `Bearer ${user.token}`
           }
@@ -149,7 +150,7 @@ export default function PrototypingOrders() {
                        <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          window.open(`http://localhost:3001/api/prototyping-orders/${order.id}/download?type=SALES_ORDER&token=${user.token}`, '_blank');
+                          window.open(`${API_BASE_URL}/prototyping-orders/${order.id}/download?type=SALES_ORDER&token=${user.token}`, '_blank');
                         }}
                         className="p-2 bg-surface-100 hover:bg-surface-200 text-text-secondary rounded-lg border border-border-glass transition-all flex items-center gap-1.5 text-[10px] font-bold"
                         title="Download Sales Order"
@@ -159,7 +160,7 @@ export default function PrototypingOrders() {
                       <button 
                          onClick={(e) => {
                           e.stopPropagation();
-                          window.open(`http://localhost:3001/api/prototyping-orders/${order.id}/download?type=INVOICE&token=${user.token}`, '_blank');
+                          window.open(`${API_BASE_URL}/prototyping-orders/${order.id}/download?type=INVOICE&token=${user.token}`, '_blank');
                         }}
                         className="p-2 bg-surface-100 hover:bg-surface-200 text-[#00cc55] rounded-lg border border-[#00cc55]/20 transition-all flex items-center gap-1.5 text-[10px] font-bold"
                         title="Download Tax Invoice"
@@ -171,7 +172,7 @@ export default function PrototypingOrders() {
                           onClick={(e) => {
                             e.stopPropagation();
                             const fileId = (order as any).specifications.fileId;
-                            window.open(`http://localhost:3001/api/three-d-printing/download/${fileId}?token=${user.token}`, '_blank');
+                            window.open(`${API_BASE_URL}/three-d-printing/download/${fileId}?token=${user.token}`, '_blank');
                           }}
                           className="p-2 bg-[#00cc55]/10 hover:bg-[#00cc55]/20 text-[#00cc55] rounded-lg border border-[#00cc55]/20 transition-all flex items-center gap-1.5 text-[10px] font-bold"
                           title="Download 3D Model"

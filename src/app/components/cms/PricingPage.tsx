@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, Loader2, CheckCircle2, AlertTriangle, Cpu, Box, Zap } from 'lucide-react';
-
-const BACKEND_URL = '';
+import { API_BASE_URL } from '../../../api/config';
 
 export default function PricingPage() {
   const [activeTab, setActiveTab] = useState<'3d' | 'pcb' | 'laser'>('3d');
@@ -21,7 +20,7 @@ export default function PricingPage() {
     setError(null);
     try {
       const token = sessionStorage.getItem('cms_token');
-      const res = await fetch(`${BACKEND_URL}/api/cms-admin/pricing`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE_URL}/cms-admin/pricing`, { headers: { 'Authorization': `Bearer ${token}` } });
       const data = await res.json();
       if (data.success && data.pricing) {
         setPricing3d(data.pricing['3d_pricing']);
@@ -36,7 +35,7 @@ export default function PricingPage() {
     setSaving(true); setError(null); setSuccess(null);
     try {
       const token = sessionStorage.getItem('cms_token');
-      const res = await fetch(`${BACKEND_URL}/api/cms-admin/pricing`, {
+      const res = await fetch(`${API_BASE_URL}/cms-admin/pricing`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ key, value })

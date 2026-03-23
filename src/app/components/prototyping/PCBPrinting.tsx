@@ -3,8 +3,7 @@ import GerberViewer from './GerberViewer';
 import { Upload, HelpCircle, ChevronDown, ChevronUp, Info, Shield, Clock, FileText, History, Loader2, CheckCircle2, AlertTriangle, X, Layers } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const BACKEND_URL = '';
+import { API_BASE_URL } from '../../../api/config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -244,7 +243,7 @@ export default function PCBPrinting() {
   const [pcbPricing, setPcbPricing] = useState<any>(null);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/pricing/pcb_pricing`)
+    fetch(`${API_BASE_URL}/pricing/pcb_pricing`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.value) setPcbPricing(data.value);
@@ -334,7 +333,7 @@ export default function PCBPrinting() {
     formData.append('gerberFile', file);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/pcb/parse-gerber`, {
+      const res = await fetch(`${API_BASE_URL}/pcb/parse-gerber`, {
         method: 'POST',
         body: formData,
       });

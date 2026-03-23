@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Layers, Eye, ZoomIn, ZoomOut, RotateCcw, Maximize2, Upload, Loader2, AlertTriangle } from 'lucide-react';
-
-const BACKEND_URL = '';
+import { API_BASE_URL } from '../../../api/config';
 
 interface LayerInfo {
   filename: string;
@@ -59,7 +58,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
         const formData = new FormData();
         formData.append('gerberFile', file);
 
-        const res = await fetch(`${BACKEND_URL}/api/pcb/render-gerber`, {
+        const res = await fetch(`${API_BASE_URL}/pcb/render-gerber`, {
           method: 'POST',
           body: formData,
         });

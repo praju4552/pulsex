@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PrototypingHeader } from './PrototypingHeader';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, Loader2, Clock, CheckCircle2, Truck, AlertCircle, MapPin, CreditCard, ChevronRight } from 'lucide-react';
+import { API_BASE_URL } from '../../../api/config';
 
 interface TrackedOrder {
   orderRef: string;
@@ -33,7 +34,7 @@ export default function PrototypingTrack() {
     setOrder(null);
 
     try {
-      const res = await fetch(`/api/prototyping-orders/track/${orderRef}`);
+      const res = await fetch(`${API_BASE_URL}/prototyping-orders/track/${orderRef}`);
       if (!res.ok) {
         if (res.status === 404) throw new Error('Order not found. Please check your reference ID.');
         throw new Error('Failed to fetch tracking details.');

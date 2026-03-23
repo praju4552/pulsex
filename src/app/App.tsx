@@ -27,6 +27,7 @@ import ServiceOrdersPage from './components/cms/ServiceOrdersPage';
 import InquiriesPage from './components/cms/InquiriesPage';
 import UsersPage from './components/cms/UsersPage';
 import PricingPage from './components/cms/PricingPage';
+import CMSPayments from './components/cms/CMSPayments';
 
 export default function App() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="sem-tem" element={<InquiriesPage serviceFilter="SEM_TEM" title="SEM/TEM Analysis Inquiries" />} />
             <Route path="project-dev" element={<InquiriesPage serviceFilter="PROJECT_DEV" title="Project Development Inquiries" />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="payments" element={<CMSPayments />} />
             <Route path="pricing" element={<PricingPage />} />
           </Route>
 

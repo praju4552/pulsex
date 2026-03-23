@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Cpu, PencilRuler, Box, Zap,
-  Microscope, Lightbulb, Users, LogOut, Menu, X, Settings
+  Microscope, Lightbulb, Users, LogOut, Menu, X, Settings, CreditCard
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/cms/sem-tem',       icon: Microscope,      label: 'SEM / TEM' },
   { to: '/cms/project-dev',   icon: Lightbulb,       label: 'Project Dev' },
   { to: '/cms/users',         icon: Users,           label: 'Users' },
+  { to: '/cms/payments',      icon: CreditCard,      label: 'Payments Log' },
   { to: '/cms/pricing',       icon: Settings,        label: 'Pricing Settings' },
 ];
 

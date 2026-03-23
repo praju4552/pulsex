@@ -29,7 +29,7 @@ export default function ServiceOrdersPage({ serviceFilter, title }: Props) {
       if (payFilter !== 'all') params.set('payment', payFilter);
       if (search) params.set('search', search);
 
-      const res = await fetch(`${API_BASE_URL}/prototyping-orders?${params}`, {
+      const res = await fetch(`${API_BASE_URL}/cms-admin/orders?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();

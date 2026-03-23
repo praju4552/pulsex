@@ -5,28 +5,48 @@ import prisma from '../db';
 export const getDashboardStats = async (_req: Request, res: Response) => {
   try {
     const [
-      totalOrders,
-      pendingOrders,
-      inProgressOrders,
-      completedOrders,
-      cancelledOrders,
-      totalRevenue,
-      totalUsers,
-      totalInquiries,
-      recentOrders,
-      recentInquiries,
+      totalProto, pendingProto, inProgressProto, completedProto, cancelledProto, revenueProto,
+      total3D, pending3D, inProgress3D, completed3D, cancelled3D, revenue3D,
+      totalLaser, pendingLaser, inProgressLaser, completedLaser, cancelledLaser, revenueLaser,
+      totalUsers, totalInquiries, recentProto, recentInquiries
     ] = await Promise.all([
+      // Prototyping
       prisma.prototypingOrder.count(),
       prisma.prototypingOrder.count({ where: { orderStatus: 'PENDING' } }),
       prisma.prototypingOrder.count({ where: { orderStatus: 'IN_PRODUCTION' } }),
       prisma.prototypingOrder.count({ where: { orderStatus: 'DELIVERED' } }),
       prisma.prototypingOrder.count({ where: { orderStatus: 'CANCELLED' } }),
       prisma.prototypingOrder.aggregate({ _sum: { totalAmount: true } }),
+      
+      // 3D
+      prisma.threeDOrder.count(),
+      prisma.threeDOrder.count({ where: { status: 'PENDING' } }),
+      prisma.threeDOrder.count({ where: { status: 'IN_PRODUCTION' } }),
+      prisma.threeDOrder.count({ where: { status: 'DELIVERED' } }),
+      prisma.threeDOrder.count({ where: { status: 'CANCELLED' } }),
+      prisma.threeDOrder.aggregate({ _sum: { price: true } }),
+
+      // Laser
+      prisma.laserCuttingOrder.count(),
+      prisma.laserCuttingOrder.count({ where: { status: 'PENDING' } }),
+      prisma.laserCuttingOrder.count({ where: { status: 'IN_PRODUCTION' } }),
+      prisma.laserCuttingOrder.count({ where: { status: 'DELIVERED' } }),
+      prisma.laserCuttingOrder.count({ where: { status: 'CANCELLED' } }),
+      prisma.laserCuttingOrder.aggregate({ _sum: { price: true } }),
+
+      // Users & Inquiries
       prisma.prototypingUser.count(),
       prisma.serviceInquiry.count(),
       prisma.prototypingOrder.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
       prisma.serviceInquiry.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
     ]);
+
+    const totalOrders = totalProto + total3D + totalLaser;
+    const pendingOrders = pendingProto + pending3D + pendingLaser;
+    const inProgressOrders = inProgressProto + inProgress3D + inProgressLaser;
+    const completedOrders = completedProto + completed3D + completedLaser;
+    const cancelledOrders = cancelledProto + cancelled3D + cancelledLaser;
+    const totalRevenueCents = (revenueProto._sum.totalAmount || 0) + (revenue3D._sum.price || 0) + (revenueLaser._sum.price || 0);
 
     return res.json({
       success: true,
@@ -36,16 +56,119 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
         inProgressOrders,
         completedOrders,
         cancelledOrders,
-        totalRevenue: totalRevenue._sum.totalAmount || 0,
+        totalRevenue: totalRevenueCents,
         totalUsers,
         totalInquiries,
       },
-      recentOrders,
+      recentOrders: recentProto,
       recentInquiries,
     });
   } catch (error: any) {
     console.error('[getDashboardStats]', error);
     return res.status(500).json({ success: false, error: 'Failed to fetch stats.' });
+  }
+};
+
+// GET /api/cms-admin/orders — list all aggregated orders
+export const getAllOrders = async (req: Request, res: Response) => {
+  try {
+    const { search, status, payment, page = '1', limit = '25' } = req.query as Record<string, string>;
+    const pageInt = parseInt(page) || 1;
+    const limitInt = Math.min(parseInt(limit) || 25, 100);
+
+    const [protoOrders, threeDOrders, laserOrders] = await Promise.all([
+      prisma.prototypingOrder.findMany({
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.threeDOrder.findMany({
+        include: { user: true, file: { include: { config: true } } },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.laserCuttingOrder.findMany({
+        include: { user: true, file: { include: { config: true } } },
+        orderBy: { createdAt: 'desc' }
+      })
+    ]);
+
+    const formattedProto = protoOrders.map(o => ({
+      ...o,
+      firstName: o.firstName, lastName: o.lastName, orderStatus: o.orderStatus, totalAmount: o.totalAmount, 
+      serviceType: o.serviceType === 'PCB' ? 'PCB Printing' : 'Custom Prototyping'
+    }));
+
+    const formatted3D = threeDOrders.map(o => ({
+      id: o.id, orderRef: `3D-${o.id.substring(0, 6).toUpperCase()}`,
+      firstName: o.user?.name?.split(' ')[0] || 'Unknown', lastName: o.user?.name?.split(' ').slice(1).join(' ') || '', email: o.user?.email || '', phone: o.user?.phone || '',
+      createdAt: o.createdAt, specSummary: `3D Print: ${o.file?.config?.material} (${o.file?.config?.finish})`,
+      totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID', // Modify if tracking payment status in 3D order natively
+      serviceType: '3D Printing'
+    }));
+
+    const formattedLaser = laserOrders.map(o => ({
+      id: o.id, orderRef: `LC-${o.id.substring(0, 6).toUpperCase()}`,
+      firstName: o.user?.name?.split(' ')[0] || 'Unknown', lastName: o.user?.name?.split(' ').slice(1).join(' ') || '', email: o.user?.email || '', phone: o.user?.phone || '',
+      createdAt: o.createdAt, specSummary: `Laser: ${o.file?.config?.material} (${o.file?.config?.serviceType})`,
+      totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+      serviceType: 'Laser Cutting'
+    }));
+
+    let allOrders = [...formattedProto, ...formatted3D, ...formattedLaser].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    if (search) {
+      const s = search.toLowerCase();
+      allOrders = allOrders.filter(o => 
+        o.orderRef?.toLowerCase().includes(s) || 
+        o.firstName?.toLowerCase().includes(s) || 
+        o.lastName?.toLowerCase().includes(s) || 
+        o.email?.toLowerCase().includes(s)
+      );
+    }
+    if (status && status !== 'all') allOrders = allOrders.filter(o => o.orderStatus === status);
+    if (payment && payment !== 'all') allOrders = allOrders.filter(o => o.paymentStatus === payment);
+
+    const total = allOrders.length;
+    const paginated = allOrders.slice((pageInt - 1) * limitInt, pageInt * limitInt);
+
+    return res.json({ success: true, orders: paginated, total, page: pageInt, totalPages: Math.ceil(total / limitInt) });
+  } catch (error: any) {
+    console.error('[getAllOrders]', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch all orders.' });
+  }
+};
+
+// GET /api/cms-admin/payments — list raw Razorpay records
+export const getAllPayments = async (req: Request, res: Response) => {
+  try {
+    const { search, status, page = '1', limit = '50' } = req.query as Record<string, string>;
+    const pageInt = parseInt(page) || 1;
+    const limitInt = Math.min(parseInt(limit) || 50, 100);
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { razorpayOrderId: { contains: search, mode: 'insensitive' } },
+        { razorpayPaymentId: { contains: search, mode: 'insensitive' } },
+        { orderType: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (status && status !== 'all') {
+      where.status = status;
+    }
+
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (pageInt - 1) * limitInt,
+        take: limitInt,
+      }),
+      prisma.payment.count({ where }),
+    ]);
+
+    return res.json({ success: true, payments, total, page: pageInt, totalPages: Math.ceil(total / limitInt) });
+  } catch (error: any) {
+    console.error('[getAllPayments]', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch payments.' });
   }
 };
 

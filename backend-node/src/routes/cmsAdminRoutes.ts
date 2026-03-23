@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDashboardStats, listUsers, getUserDetail, getPricingConfigs, updatePricingConfig } from '../controllers/cmsAdminController';
+import { getDashboardStats, listUsers, getUserDetail, getPricingConfigs, updatePricingConfig, getAllOrders, getAllPayments } from '../controllers/cmsAdminController';
 import { authenticateToken, requireRole } from '../middleware/auth';
 
 const router = Router();
@@ -12,5 +12,7 @@ router.get('/users', listUsers);
 router.get('/users/:id', getUserDetail);
 router.get('/pricing', getPricingConfigs);
 router.patch('/pricing', updatePricingConfig);
+router.get('/orders', getAllOrders);
+router.get('/payments', getAllPayments);
 
 export default router;

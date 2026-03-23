@@ -6,7 +6,7 @@
     "scripts": {
         "start": "npx prisma generate && npx prisma db push && node dist/app.js",
         "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
-        "build": "echo 'Skipping build on server, using uploaded dist/'",
+        "build": "tsc",
         "prisma:generate": "prisma generate",
         "prisma:push": "prisma db push"
     },

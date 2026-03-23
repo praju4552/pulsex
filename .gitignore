@@ -1,7 +1,33 @@
-.env
+# 📦 Dependency directories
 node_modules/
+backend-node/node_modules/
+
+# 🛠️ Compiled output folders
 dist/
-!backend-node/dist/
+dist-ssr/
+build/
+backend-node/dist/
+
+# 🔐 Local Environment Secrets - NEVER commit these!
+.env
+.env.*
+!.env.example
+backend-node/.env
+backend-node/.env.*
+!backend-node/.env.example
+
+# 🗑️ Temporary and upload files
 uploads/
+backend-node/uploads/
+*.zip
+
+# 📋 Logs and OS files
 *.log
+npm-debug.log*
 .DS_Store
+Thumbs.db
+
+# 🛑 Throwaway/Debug Scripts we used earlier
+delete_scan_*.py
+tsc_error_*.txt
+*.bat

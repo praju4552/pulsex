@@ -139,22 +139,60 @@ export async function updatePrototypingOrder(req: Request, res: Response) {
 export async function listUserPrototypingOrders(req: Request, res: Response) {
   try {
     const { userId } = req.params;
-
-    // Security: Verify the requesting user can only see their own orders
-    // SUPER_ADMIN can see any user's orders
     const requestingUser = req.user as any;
+
+    let targetUserId = userId;
     const SUPER_ADMIN_EMAILS = ['prajwalshetty4552@gmail.com', 'pulsewritexsolutions@gmail.com'];
+    
+    // Security: Force target ID to be the authenticated user's token ID unless superadmin
     if (requestingUser?.role !== 'SUPER_ADMIN' || !SUPER_ADMIN_EMAILS.includes(requestingUser?.email)) {
-      if (requestingUser?.userId !== userId) {
-        return res.status(403).json({ error: 'Access denied: you can only view your own orders.' });
+      if (!requestingUser?.id) {
+        return res.status(401).json({ error: 'Invalid token payload missing user ID' });
       }
+      targetUserId = requestingUser.id; // Override path parameter forcibly
     }
 
-    const orders = await prisma.prototypingOrder.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
-    return res.json(orders);
+    const [protoOrders, threeDOrders, laserOrders] = await Promise.all([
+      prisma.prototypingOrder.findMany({
+        where: { userId: targetUserId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.threeDOrder.findMany({
+        where: { userId: targetUserId },
+        include: { file: { include: { config: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.laserCuttingOrder.findMany({
+        where: { userId: targetUserId },
+        include: { file: { include: { config: true } } },
+        orderBy: { createdAt: 'desc' },
+      })
+    ]);
+
+    const formattedProto = protoOrders.map(o => ({
+      ...o,
+      serviceType: o.serviceType === 'PCB' ? 'PCB Printing' : 'Custom Prototyping'
+    }));
+
+    const formatted3D = threeDOrders.map(o => ({
+      id: o.id, orderRef: `3D-${o.id.substring(0, 6).toUpperCase()}`,
+      createdAt: o.createdAt, specSummary: `3D Print: ${o.file?.config?.material} (${o.file?.config?.finish})`,
+      totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+      serviceType: '3D Printing'
+    }));
+
+    const formattedLaser = laserOrders.map(o => ({
+      id: o.id, orderRef: `LC-${o.id.substring(0, 6).toUpperCase()}`,
+      createdAt: o.createdAt, specSummary: `Laser: ${o.file?.config?.material} (${o.file?.config?.serviceType})`,
+      totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+      serviceType: 'Laser Cutting'
+    }));
+
+    const allOrders = [...formattedProto, ...formatted3D, ...formattedLaser].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return res.json(allOrders);
   } catch (err) {
     console.error('[listUserPrototypingOrders]', err);
     return res.status(500).json({ error: 'Failed to fetch your orders.' });

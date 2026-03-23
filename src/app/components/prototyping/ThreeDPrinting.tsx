@@ -216,7 +216,7 @@ export default function ThreeDPrinting() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      setStep('success');
+      window.location.href = '/prototyping/orders';
     } catch (err: any) {
       setError(err.message);
       setStep('configure');
@@ -548,10 +548,10 @@ export default function ThreeDPrinting() {
                                     </div>
                                 </div>
                                 <button 
-                                    onClick={() => step === 'configure' ? setStep('summary') : submitOrder()}
+                                    onClick={submitOrder}
                                     className="px-8 py-4 bg-[#00cc55] hover:bg-[#00cc55]/90 text-black font-black rounded-2xl flex items-center gap-3 shadow-[0_0_30px_rgba(0,204,85,0.3)] transition-all hover:scale-105 active:scale-95"
                                 >
-                                    {step === 'configure' ? 'Next Step' : 'Confirm Order'} <ChevronRight className="w-5 h-5" />
+                                    Confirm Order <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>

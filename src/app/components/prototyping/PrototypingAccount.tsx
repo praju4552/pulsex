@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PrototypingHeader } from './PrototypingHeader';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Mail, Phone, Package, Search, ChevronRight, Settings, Shield, Clock, Loader2, MapPin } from 'lucide-react';
+import { API_BASE_URL } from '../../../api/config';
 
 interface OrderSummary {
   id: string;
@@ -39,7 +40,7 @@ export default function PrototypingAccount() {
     const fetchLastOrder = async () => {
       try {
         const token = JSON.parse(localStorage.getItem('prototypingUser') || '{}').token;
-        const res = await fetch(`http://localhost:3001/api/prototyping-orders/user/${user.id}`, {
+        const res = await fetch(`${API_BASE_URL}/prototyping-orders/user/${user.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -65,7 +66,7 @@ export default function PrototypingAccount() {
       const storedUser = JSON.parse(localStorage.getItem('prototypingUser') || '{}');
       const token = storedUser.token;
 
-      const res = await fetch('http://localhost:3001/api/prototyping-auth/update-profile', {
+      const res = await fetch(`${API_BASE_URL}/prototyping-auth/update-profile`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

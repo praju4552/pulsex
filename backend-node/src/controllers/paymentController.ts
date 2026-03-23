@@ -42,7 +42,10 @@ export const verifyPayment = async (req: Request, res: Response) => {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderType, orderIds } = req.body;
 
     const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
-    if (!isValid) return res.status(400).json({ error: 'Invalid payment signature' });
+    if (!isValid) {
+      console.error(`Signature mismatch. Order: ${razorpayOrderId}, Secret length: ${process.env.RAZORPAY_KEY_SECRET?.length || 0}`);
+      return res.status(400).json({ error: `Signature mismatch. Secret key length in memory: ${process.env.RAZORPAY_KEY_SECRET?.length || 0} chars. Did you restart the server?` });
+    }
 
     await prisma.payment.update({
       where: { razorpayOrderId },
@@ -76,8 +79,8 @@ export const verifyPayment = async (req: Request, res: Response) => {
     }
 
     res.json({ success: true, message: 'Payment verified and orders confirmed' });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Payment verification error:', err);
-    res.status(500).json({ error: 'Verification failed' });
+    res.status(500).json({ error: `Server Error: ${err.message || 'Verification failed internally'}` });
   }
 };

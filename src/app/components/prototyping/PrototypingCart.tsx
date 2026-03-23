@@ -142,7 +142,7 @@ export default function PrototypingCart() {
       if (err.message === 'Payment cancelled by user') {
          alert('Payment was cancelled. Your order is submittted — you can pay from your orders panel.');
       } else {
-         alert('Payment verification failed or timed out. Please retry.');
+         alert('Payment verification failed: ' + (err.message || 'Unknown network error. Please check your internet connection.'));
       }
     } finally {
       setIsSubmitting(false);

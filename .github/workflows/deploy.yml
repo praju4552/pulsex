@@ -44,6 +44,7 @@ jobs:
     - name: 🔨 Build Frontend
       env:
         VITE_API_URL: https://api.pulsewritexsolutions.com
+        VITE_GOOGLE_CLIENT_ID: 835363988192-jr2ftrbtlklhui007gosnstjqca77m71.apps.googleusercontent.com
       run: |
         npm install
         npm run build

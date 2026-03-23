@@ -306,6 +306,12 @@ export default function ThreeDPrinting() {
 
           {(step === 'configure' || step === 'summary') && metadata && (
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Global Error Alert */}
+                {error && (
+                    <div className="lg:col-span-12 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 flex-shrink-0" /> {error}
+                    </div>
+                )}
                 
                 {/* 3D Preview Column */}
                 <div className="lg:col-span-7 space-y-6">

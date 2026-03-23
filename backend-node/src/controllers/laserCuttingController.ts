@@ -208,8 +208,10 @@ export const createOrder = async (req: Request, res: Response) => {
     const jobId = await generateId('LC');
 
     // 4. Create unified PrototypingOrder entry (visible in admin dashboard)
+    const orderRef = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const protoOrder = await prisma.prototypingOrder.create({
       data: {
+        orderRef,
         firstName: customerInfo.firstName,
         lastName: customerInfo.lastName,
         email: customerInfo.email,

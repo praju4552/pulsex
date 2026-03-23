@@ -123,8 +123,10 @@ export const createOrder = async (req: Request, res: Response) => {
 
     // 3. Integrate with the GENERAL PrototypingOrder table (as requested: "Orders must automatically map to SuperAdmin")
     // This ensures it shows up in the existing admin dashboard which polls `prototyping-orders`
+    const orderRef = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const protoOrder = await prisma.prototypingOrder.create({
       data: {
+        orderRef,
         firstName: customerInfo.firstName,
         lastName: customerInfo.lastName,
         email: customerInfo.email,

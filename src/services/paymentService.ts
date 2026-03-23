@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '../api/config';
+
 export const initiateRazorpayPayment = async (
   totalAmountInPaise: number,
   orderIds: string[],
@@ -6,7 +8,7 @@ export const initiateRazorpayPayment = async (
 ): Promise<void> => {
   const token = JSON.parse(localStorage.getItem('prototypingUser') || '{}').token;
   
-  const res = await fetch('http://localhost:3001/api/payments/create-order', {
+  const res = await fetch(`${API_BASE_URL}/payments/create-order`, {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
@@ -23,7 +25,7 @@ export const initiateRazorpayPayment = async (
       key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
       amount: order.amount,
       currency: order.currency,
-      name: 'Antigravity',
+      name: 'PulseWriteX',
       description: 'Order Payment',
       order_id: order.razorpayOrderId,
       prefill: { 
@@ -31,9 +33,9 @@ export const initiateRazorpayPayment = async (
         email: userDetails.email, 
         contact: userDetails.phone 
       },
-      theme: { color: '#00cc55' }, // Match emerald theme
+      theme: { color: '#00cc55' },
       handler: async (response: any) => {
-        const verify = await fetch('http://localhost:3001/api/payments/verify', {
+        const verify = await fetch(`${API_BASE_URL}/payments/verify`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',

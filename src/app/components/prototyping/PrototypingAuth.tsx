@@ -4,6 +4,7 @@ import { PrototypingHeader } from './PrototypingHeader';
 import { XPulseLogo } from '../XPulseIcon';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
+import { API_BASE_URL } from '../../../api/config';
 
 export default function PrototypingAuth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -53,7 +54,7 @@ export default function PrototypingAuth() {
     setError('');
 
     if (authMethod === 'email') {
-      const endpoint = isLogin ? '/api/prototyping-auth/login' : '/api/prototyping-auth/signup';
+      const endpoint = isLogin ? `${API_BASE_URL}/prototyping-auth/login` : `${API_BASE_URL}/prototyping-auth/signup`;
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -72,7 +73,7 @@ export default function PrototypingAuth() {
       try {
         if (whatsappStep === 'phone') {
           // Request OTP
-          const response = await fetch('/api/prototyping-auth/whatsapp/request-otp', {
+          const response = await fetch(`${API_BASE_URL}/prototyping-auth/whatsapp/request-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: formData.phone })
@@ -83,7 +84,7 @@ export default function PrototypingAuth() {
           setWhatsappStep('otp');
         } else {
           // Verify OTP
-          const response = await fetch('/api/prototyping-auth/whatsapp/verify', {
+          const response = await fetch(`${API_BASE_URL}/prototyping-auth/whatsapp/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: formData.phone, otp: formData.otp })
@@ -106,7 +107,7 @@ export default function PrototypingAuth() {
         setLoading(true);
         setError('');
         // ✅ Send raw access_token to backend for server-side verification
-        const response = await fetch('/api/prototyping-auth/google', {
+        const response = await fetch(`${API_BASE_URL}/prototyping-auth/google`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ access_token: tokenResponse.access_token })

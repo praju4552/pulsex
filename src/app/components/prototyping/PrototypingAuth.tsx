@@ -80,7 +80,7 @@ export default function PrototypingAuth() {
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || 'Failed to send OTP');
-          setSuccessMsg('OTP sent! Please check your WhatsApp.');
+          setSuccessMsg(data.devModeOtp ? `OTP sent! (Dev Mode OTP: ${data.devModeOtp})` : 'OTP sent! Please check your WhatsApp.');
           setWhatsappStep('otp');
         } else {
           // Verify OTP

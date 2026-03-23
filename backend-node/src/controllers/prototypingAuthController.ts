@@ -236,9 +236,13 @@ export const whatsappRequestOtp = async (req: Request, res: Response) => {
             }
         });
 
-        console.log(`[WhatsApp OTP] Send trigger initiated for ${phone} at ${new Date().toISOString()}`);
+        // [DEV MODE] Log OTP and return in response
+        console.log(`[WHATSAPP-DEV] OTP for ${phone}: ${otp}`);
 
-        res.json({ message: 'OTP generated and sent' });
+        res.json({ 
+            message: 'OTP generated and sent',
+            devModeOtp: otp 
+        });
     } catch (error) {
         console.error('WhatsApp request error:', error);
         res.status(500).json({ error: 'Failed to process WhatsApp request' });

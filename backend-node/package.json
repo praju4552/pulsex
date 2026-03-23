@@ -4,7 +4,7 @@
     "description": "Backend service for Project Templates module",
     "main": "dist/app.js",
     "scripts": {
-        "start": "npx prisma generate && npx prisma db push && node dist/app.js",
+        "start": "npm install --omit=dev && npx prisma generate && npx prisma db push && node dist/app.js",
         "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
         "build": "tsc",
         "prisma:generate": "prisma generate",

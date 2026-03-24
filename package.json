@@ -7,8 +7,7 @@
   "scripts": {
     "start": "cd backend-node && node dist/app.js",
     "dev": "vite",
-    "build": "echo 'Frontend pre-compiled'",
-    "build:vite": "vite build",
+    "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {

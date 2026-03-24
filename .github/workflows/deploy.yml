@@ -55,6 +55,17 @@ jobs:
           target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
           strip_components: 1
 
+      - name: Generate Prisma Client on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
+            cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
+            npx prisma generate
+
       # 🔵 2. SETUP & BUILD FRONTEND
       - name: ⚙️ Setup Node for Frontend
         uses: actions/setup-node@v3

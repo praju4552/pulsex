@@ -32,7 +32,7 @@ export default function PrototypingOrders() {
 
     const fetchOrders = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/prototyping-orders/user/${user.id}`, {
+        const res = await fetch(`${API_BASE_URL}/prototyping-orders/my-orders`, {
           headers: {
             'Authorization': `Bearer ${user.token}`
           }

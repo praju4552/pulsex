@@ -5,6 +5,7 @@ import {
   getPrototypingOrder,
   updatePrototypingOrder,
   listUserPrototypingOrders,
+  getMyOrders,
   trackPrototypingOrder,
   downloadPrototypingDocument,
 } from '../controllers/prototypingOrderController';
@@ -19,6 +20,7 @@ router.get('/track/:orderRef', trackPrototypingOrder);
 
 // ── AUTHENTICATED USER routes ──────────────────────────────────────────────────
 // User must be logged in to view their orders or download their documents
+router.get('/my-orders', authenticateToken, getMyOrders);
 router.get('/user/:userId', authenticateToken, listUserPrototypingOrders);
 router.get('/:id/download', authenticateToken, downloadPrototypingDocument);
 

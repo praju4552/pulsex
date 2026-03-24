@@ -199,6 +199,62 @@ export async function listUserPrototypingOrders(req: Request, res: Response) {
   }
 }
 
+// GET /api/prototyping-orders/my-orders — secure endpoint pulling ID strictly from JWT
+export async function getMyOrders(req: Request, res: Response) {
+  try {
+    const user = req.user as any;
+    if (!user || !user.id) {
+      return res.status(401).json({ error: 'Unauthorized: Missing user payload in token' });
+    }
+
+    const [protoOrders, threeDOrders, laserOrders] = await Promise.all([
+      prisma.prototypingOrder.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.threeDOrder.findMany({
+        where: { userId: user.id },
+        include: { file: { include: { config: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.laserCuttingOrder.findMany({
+        where: { userId: user.id },
+        include: { file: { include: { config: true } } },
+        orderBy: { createdAt: 'desc' },
+      })
+    ]);
+
+    const formattedProto = protoOrders.map(o => ({
+      ...o,
+      serviceType: o.serviceType === 'PCB' ? 'PCB Printing' : 'Custom Prototyping'
+    }));
+
+    const formatted3D = threeDOrders.map(o => ({
+      id: o.id, orderRef: `3D-${o.id.substring(0, 6).toUpperCase()}`,
+      createdAt: o.createdAt, specSummary: `3D Print: ${o.file?.config?.material} (${o.file?.config?.finish})`,
+      totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+      serviceType: '3D Printing',
+      specifications: { fileId: o.fileId }
+    }));
+
+    const formattedLaser = laserOrders.map(o => ({
+      id: o.id, orderRef: `LC-${o.id.substring(0, 6).toUpperCase()}`,
+      createdAt: o.createdAt, specSummary: `Laser: ${o.file?.config?.material} (${o.file?.config?.serviceType})`,
+      totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+      serviceType: 'Laser Cutting'
+    }));
+
+    const allOrders = [...formattedProto, ...formatted3D, ...formattedLaser].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return res.json(allOrders);
+  } catch (err) {
+    console.error('[getMyOrders]', err);
+    return res.status(500).json({ error: 'Failed to fetch personal orders.' });
+  }
+}
+
 // GET /api/prototyping-orders/track/:orderRef — public: track order by ref
 export async function trackPrototypingOrder(req: Request, res: Response) {
   try {

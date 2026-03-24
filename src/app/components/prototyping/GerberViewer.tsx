@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Layers, Eye, ZoomIn, ZoomOut, RotateCcw, Maximize2, Upload, Loader2, AlertTriangle } from 'lucide-react';
+import { Layers, Eye, ZoomIn, ZoomOut, RotateCcw, Maximize2, Upload, Loader2, AlertTriangle, X } from 'lucide-react';
 import { API_BASE_URL } from '../../../api/config';
 
 interface LayerInfo {
@@ -33,6 +33,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
+  const [isPanelExpanded, setIsPanelExpanded] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedFile = useRef<File | null>(null);
@@ -199,7 +200,18 @@ export default function GerberViewer({ file }: GerberViewerProps) {
 
           {/* Floating Layer Panel (Embedded) - Glassmorphism */}
           {status === 'done' && (
-            <div className={`absolute top-4 left-4 w-60 max-h-[calc(100%-2rem)] bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col shadow-2xl transition-all duration-500 z-30 overflow-hidden ring-1 ring-white/5`}>
+            <div className={`absolute top-4 left-4 ${isPanelExpanded ? 'w-60' : 'w-auto'} max-h-[calc(100%-2rem)] bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col shadow-2xl transition-all duration-300 z-30 overflow-hidden ring-1 ring-white/5`}>
+              {!isPanelExpanded ? (
+                <button 
+                  onClick={() => setIsPanelExpanded(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-[#00ff6a] hover:bg-white/5 transition-colors"
+                  title="Expand Stackup"
+                >
+                  <Layers className="w-4 h-4 shadow-[0_0_8px_rgba(0,255,106,0.3)]" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Stackup</span>
+                </button>
+              ) : (
+                <>
               <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-[#00cc55] animate-pulse" />
@@ -214,6 +226,8 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                     <button onClick={() => setActiveView('top')} className={`px-2.5 py-1 rounded-md text-[9px] font-bold transition-all ${activeView === 'top' ? 'bg-[#00cc55] text-black shadow-lg shadow-[#00cc55]/20' : 'text-zinc-400 hover:text-white'}`}>TOP</button>
                     <button onClick={() => setActiveView('bottom')} className={`px-2.5 py-1 rounded-md text-[9px] font-bold transition-all ${activeView === 'bottom' ? 'bg-[#00cc55] text-black shadow-lg shadow-[#00cc55]/20' : 'text-zinc-400 hover:text-white'}`}>BOT</button>
                   </div>
+                  <div className="w-px h-3 bg-white/10 mx-1" />
+                  <button onClick={() => setIsPanelExpanded(false)} className="p-0.5 hover:bg-white/10 rounded-md text-zinc-400 hover:text-white transition-colors"><X className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
 
@@ -257,7 +271,9 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                    <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
                    <span className="text-[8px] text-zinc-400 font-bold uppercase">Silk</span>
                  </div>
-              </div>
+               </div>
+               </>
+              )}
             </div>
           )}
 
@@ -302,7 +318,8 @@ export default function GerberViewer({ file }: GerberViewerProps) {
           #gerber-preview_${l.id},
           [id*="${l.id}"],
           [data-layer="${l.filename}"],
-          g[id*="${l.filename.replace(/[^a-zA-Z0-9]/g, '')}"] { display: none !important; }
+          g[id*="${l.filename.replace(/[^a-zA-Z0-9_]/g, '')}"],
+          [id*="${l.filename.split('.')[0]}"] { display: none !important; }
         ` : '').join('')}
         
         .gerber-svg-container svg {

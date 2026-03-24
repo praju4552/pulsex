@@ -1,8 +1,17 @@
 import AdmZip from 'adm-zip';
 import { Readable } from 'stream';
+import fs from 'fs';
+import path from 'path';
 
 const pcbStackup = require('pcb-stackup');
 const gerberToSvg = require('gerber-to-svg');
+
+const logFile = path.resolve(process.cwd(), 'debug_gerber.txt');
+function debugLog(msg: string) {
+  try {
+    fs.appendFileSync(logFile, new Date().toISOString() + ' - ' + msg + '\n');
+  } catch (e) {}
+}
 
 const LAYER_TYPE_MAP: Record<string, string> = {
   '.gtl': 'copper', '.cmp': 'copper',
@@ -62,9 +71,9 @@ function parseOutlineDimensions(gerberText: string) {
     yDecimal = parseInt(fsMatch[4], 10);
   }
 
-  console.log('UNITS DETECTED:', units);
-  console.log('X DECIMAL:', xDecimal);
-  console.log('Y DECIMAL:', yDecimal);
+  debugLog(`UNITS DETECTED: ${units}`);
+  debugLog(`X DECIMAL: ${xDecimal}`);
+  debugLog(`Y DECIMAL: ${yDecimal}`);
 
   const xCoords: number[] = [];
   const yCoords: number[] = [];
@@ -87,12 +96,12 @@ function parseOutlineDimensions(gerberText: string) {
     }
   });
 
-  console.log('TOTAL X COORDS FOUND:', xCoords.length);
-  console.log('TOTAL Y COORDS FOUND:', yCoords.length);
-  console.log('RAW X SAMPLE (first 5):', xCoords.slice(0, 5));
-  console.log('RAW Y SAMPLE (first 5):', yCoords.slice(0, 5));
-  console.log('X MIN:', Math.min(...xCoords), 'X MAX:', Math.max(...xCoords));
-  console.log('Y MIN:', Math.min(...yCoords), 'Y MAX:', Math.max(...yCoords));
+  debugLog(`TOTAL X COORDS FOUND: ${xCoords.length}`);
+  debugLog(`TOTAL Y COORDS FOUND: ${yCoords.length}`);
+  debugLog(`RAW X SAMPLE (first 5): ${xCoords.slice(0, 5).join(', ')}`);
+  debugLog(`RAW Y SAMPLE (first 5): ${yCoords.slice(0, 5).join(', ')}`);
+  debugLog(`X MIN: ${Math.min(...xCoords)} X MAX: ${Math.max(...xCoords)}`);
+  debugLog(`Y MIN: ${Math.min(...yCoords)} Y MAX: ${Math.max(...yCoords)}`);
 
   if (xCoords.length === 0 || yCoords.length === 0) return null;
 
@@ -243,18 +252,18 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
     boardHeight = parseFloat(h.toFixed(2));
 
     // ── Step 3: Precise Dimensions via Outline File Override (Fix for measurement bugs) 
-    console.log('ALL LAYER TYPES FOUND:', layerEntries.map(l => l.type));
+    debugLog(`ALL LAYER TYPES FOUND: ${layerEntries.map(l => l.type).join(', ')}`);
     const outlineLayer = layerEntries.find(l => l.type === 'outline');
-    console.log('OUTLINE LAYER FOUND:', !!outlineLayer);
+    debugLog(`OUTLINE LAYER FOUND: ${!!outlineLayer}`);
     
     if (outlineLayer) {
       const outlineText = outlineLayer.content.toString('utf8');
-      console.log('=== OUTLINE FILE FIRST 50 LINES ===');
-      console.log(outlineText.split('\n').slice(0, 50).join('\n'));
-      console.log('=== END ===');
+      debugLog('=== OUTLINE FILE FIRST 50 LINES ===');
+      debugLog(outlineText.split('\n').slice(0, 50).join('\n'));
+      debugLog('=== END ===');
       
       const directDims = parseOutlineDimensions(outlineText);
-      console.log('FINAL DIMS:', directDims);
+      debugLog(`FINAL DIMS: ${JSON.stringify(directDims)}`);
       
       if (directDims && directDims.width > 0 && directDims.height > 0) {
         boardWidth = directDims.width;
@@ -284,18 +293,18 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
       boardHeight = parseFloat(h.toFixed(2));
 
       // ── Step 3: Precise Dimensions via Outline File Override (Catch Fallback)
-      console.log('ALL LAYER TYPES FOUND (FALLBACK):', layerEntries.map(l => l.type));
+      debugLog(`ALL LAYER TYPES FOUND (FALLBACK): ${layerEntries.map(l => l.type).join(', ')}`);
       const outlineLayerFallback = layerEntries.find(l => l.type === 'outline');
-      console.log('OUTLINE LAYER FOUND (FALLBACK):', !!outlineLayerFallback);
+      debugLog(`OUTLINE LAYER FOUND (FALLBACK): ${!!outlineLayerFallback}`);
       
       if (outlineLayerFallback) {
         const outlineText = outlineLayerFallback.content.toString('utf8');
-        console.log('=== OUTLINE FILE FIRST 50 LINES (FALLBACK) ===');
-        console.log(outlineText.split('\n').slice(0, 50).join('\n'));
-        console.log('=== END ===');
+        debugLog('=== OUTLINE FILE FIRST 50 LINES (FALLBACK) ===');
+        debugLog(outlineText.split('\n').slice(0, 50).join('\n'));
+        debugLog('=== END ===');
         
         const directDims = parseOutlineDimensions(outlineText);
-        console.log('FINAL DIMS (FALLBACK):', directDims);
+        debugLog(`FINAL DIMS (FALLBACK): ${JSON.stringify(directDims)}`);
         
         if (directDims && directDims.width > 0 && directDims.height > 0) {
           boardWidth = directDims.width;

@@ -238,11 +238,14 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
       const image = plot(tree as any);
 
       if (image && image.size && image.size.length === 4) {
-        const [x1, y1, x2, y2] = image.size as [number, number, number, number];
-        const w = x2 - x1; const h = y2 - y1;
+        const [_x, _y, w, h] = image.size as [number, number, number, number];
         const factor = image.units === 'in' ? 25.4 : 1;
         finalW = parseFloat((w * factor).toFixed(2));
         finalH = parseFloat((h * factor).toFixed(2));
+        console.log('[gerberParser] Tracespace size array:', image.size);
+        console.log('[gerberParser] Units:', image.units, 'Factor:', factor);
+        console.log('[gerberParser] FINAL WIDTH MM:', finalW);
+        console.log('[gerberParser] FINAL HEIGHT MM:', finalH);
       }
     }
 

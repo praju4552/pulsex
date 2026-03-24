@@ -57,3 +57,5 @@ jobs:
             npm install --omit=dev
             ./node_modules/.bin/prisma generate
             chmod -R +x ./node_modules/.bin/
+            echo "Restarting Node.js application..."
+            killall -9 node || true

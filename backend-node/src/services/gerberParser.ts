@@ -204,7 +204,7 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
     if (!outlineFile) {
       warnings.push(`No outline file candidate matched (Tried .GKO, edge, outline). Scanning all ${files.length} files...`);
       let bestDims: { width: number; height: number } | null = null;
-      let bestArea = 0;
+      let maxArea = 0;
       for (const f of files) {
         const lower = f.filename.toLowerCase();
         if (lower.endsWith('.drl') || lower.endsWith('.exc') || lower.endsWith('.txt')) continue;
@@ -214,10 +214,10 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
         const dims = manualCoordinateParse(data);
         if (dims) {
           const area = dims.width * dims.height;
-          // Strategy: Pick the SMALLEST valid bounding box > 100mm2 to avoid title blocks
-          if (bestDims === null || (area > 100 && area < bestArea)) {
+          // Strategy: Pick the LARGEST valid bounding box under 400,000mm2 to find the board boundary
+          if (dims.width < 1000 && dims.height < 1000 && (bestDims === null || area > maxArea)) {
             bestDims = dims;
-            bestArea = area;
+            maxArea = area;
             warnings.push(`Found candidate in ${f.filename}: ${dims.width}x${dims.height}mm (Area: ${area.toFixed(0)})`);
           }
         }

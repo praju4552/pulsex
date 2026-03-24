@@ -201,44 +201,20 @@ function manualCoordinateParse(gerberData) {
 function extractBoardDimensions(files, warnings) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            console.log('[gerberParser] Starting Tracespace dimension extraction pipeline...');
-            let createParser, plot, identifyLayers;
-            let tracespaceAvailable = false;
-            try {
-                ({ createParser } = require('@tracespace/parser'));
-                ({ plot } = require('@tracespace/plotter'));
-                ({ identifyLayers } = require('@tracespace/identify-layers'));
-                tracespaceAvailable = true;
-            }
-            catch (moduleErr) {
-                warnings.push(`Tracespace not available natively — using manual parser fallback.`);
-            }
-            let outlineFile;
-            if (tracespaceAvailable) {
-                const identified = identifyLayers(files.map((f) => f.filename));
-                outlineFile = files.find(f => {
-                    const info = identified[f.filename];
-                    const layerType = info === null || info === void 0 ? void 0 : info.type;
-                    return layerType === 'outline' ||
-                        f.filename.match(/\.(GKO|GM1|GBR|GML)$/i) ||
-                        f.filename.toLowerCase().includes('edge') ||
-                        f.filename.toLowerCase().includes('outline') ||
-                        f.filename.toLowerCase().includes('profile');
-                });
-            }
-            else {
-                outlineFile = files.find(f => {
-                    const lower = f.filename.toLowerCase();
-                    return lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') ||
-                        lower.endsWith('.bor') || lower.endsWith('.dim') ||
-                        lower.includes('edge') || lower.includes('outline') ||
-                        lower.includes('profile') || lower.includes('border') ||
-                        lower.includes('boardoutline') || lower.includes('board_outline') ||
-                        lower.includes('mechanical') || /\.gm\d+$/i.test(lower);
-                });
-            }
+            console.log('[gerberParser] Starting dimension extraction (manual parser only)...');
+            // ── Step 1: Find the outline file ──
+            let outlineFile = files.find(f => {
+                const lower = f.filename.toLowerCase();
+                return lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') ||
+                    lower.endsWith('.bor') || lower.endsWith('.dim') ||
+                    lower.includes('edge') || lower.includes('outline') ||
+                    lower.includes('profile') || lower.includes('border') ||
+                    lower.includes('boardoutline') || lower.includes('board_outline') ||
+                    lower.includes('mechanical') || /\.gm\d+$/i.test(lower);
+            });
+            // ── Step 2: If no outline file, scan ALL non-drill Gerber files ──
             if (!outlineFile) {
-                warnings.push(`No outline file candidate matched (Tried .GKO, edge, outline). Scanning all ${files.length} files...`);
+                warnings.push(`No outline file found. Scanning all ${files.length} files for board boundary...`);
                 let bestDims = null;
                 let maxArea = 0;
                 for (const f of files) {
@@ -251,7 +227,6 @@ function extractBoardDimensions(files, warnings) {
                     const dims = manualCoordinateParse(data);
                     if (dims) {
                         const area = dims.width * dims.height;
-                        // Strategy: Pick the LARGEST valid bounding box under 400,000mm2 to find the board boundary
                         if (dims.width < 1000 && dims.height < 1000 && (bestDims === null || area > maxArea)) {
                             bestDims = dims;
                             maxArea = area;
@@ -261,48 +236,26 @@ function extractBoardDimensions(files, warnings) {
                 }
                 if (bestDims)
                     return bestDims;
-                warnings.push(`Greedy coordinate scan found zero valid bounding boxes.`);
+                warnings.push(`No valid bounding boxes found in any file.`);
                 return null;
             }
+            // ── Step 3: Parse the outline file with our manual parser ──
             warnings.push(`Picked outline candidate file: ${outlineFile.filename}`);
             const outlineData = outlineFile.content.toString('utf8');
-            let finalW = 0, finalH = 0;
-            if (tracespaceAvailable) {
-                const parser = createParser();
-                parser.feed(outlineData);
-                const tree = parser.results();
-                const image = plot(tree);
-                if (image && image.size && image.size.length === 4) {
-                    // Tracespace v5 image.size is viewBox format: [x1, y1, x2, y2]
-                    const [x1, y1, x2, y2] = image.size;
-                    const w = x2 - x1;
-                    const h = y2 - y1;
-                    const factor = image.units === 'in' ? 25.4 : 1;
-                    finalW = parseFloat((w * factor).toFixed(2));
-                    finalH = parseFloat((h * factor).toFixed(2));
-                    console.log('[gerberParser] Tracespace size:', image.size, 'units:', image.units);
-                    console.log('[gerberParser] Computed:', finalW, 'x', finalH, 'mm');
+            const manualDims = manualCoordinateParse(outlineData);
+            if (manualDims && manualDims.width > 0 && manualDims.height > 0) {
+                warnings.push(`Manual parser: ${manualDims.width}x${manualDims.height}mm`);
+                if (manualDims.width < 1 || manualDims.height < 1 || manualDims.width > 2000 || manualDims.height > 2000) {
+                    warnings.push(`Dimensions out of range — discarding.`);
+                    return null;
                 }
+                return manualDims;
             }
-            if (finalW <= 0 || finalH <= 0) {
-                const manualProps = manualCoordinateParse(outlineData);
-                if (manualProps) {
-                    finalW = manualProps.width;
-                    finalH = manualProps.height;
-                    warnings.push(`Manual parser successfully read outline file: ${finalW}x${finalH}mm`);
-                }
-                else {
-                    warnings.push(`Manual parser returned null / 0 coordinates for ${outlineFile.filename}`);
-                }
-            }
-            if (finalW < 1 || finalH < 1 || finalW > 2000 || finalH > 2000) {
-                warnings.push(`Parser returned out-of-bounds dimensions: ${finalW}x${finalH}mm. Discarding.`);
-                return null;
-            }
-            return { width: finalW, height: finalH };
+            warnings.push(`Manual parser returned invalid dimensions for ${outlineFile.filename}`);
+            return null;
         }
         catch (err) {
-            warnings.push(`extractBoardDimensions fatal crash: ${err instanceof Error ? err.message : String(err)}`);
+            warnings.push(`extractBoardDimensions crash: ${err instanceof Error ? err.message : String(err)}`);
             return null;
         }
     });

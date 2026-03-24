@@ -46,15 +46,15 @@ jobs:
         strip_components: 1
 
     - name: 📦 Install Dependencies on Hostinger via SSH
-      uses: appleboy/ssh-action@v1.0.3
+      uses: appleboy/ssh-action@v0.1.10
       with:
         host: ${{ secrets.HOSTINGER_SSH_HOST }}
         username: ${{ secrets.HOSTINGER_SSH_USER }}
         password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
         port: 65002
         script: |
+          mkdir -p ~/domains/pulsewritexsolutions.com/nodejs/backend-node
           cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-          export PATH=$PATH:/usr/local/bin:/usr/bin
           npm install --production
 
     # 🔵 2. SETUP & BUILD FRONTEND

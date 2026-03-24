@@ -163,8 +163,7 @@ function manualCoordinateParse(gerberData: string): { width: number; height: num
 
 // ─── Tracespace Board Dimension Extraction ───────────────────────────────────
 
-async function extractBoardDimensions(files: { filename: string; content: Buffer }[]): Promise<{ width: number; height: number } | null> {
-  // Case 3: Wrap entire processing architecture securely
+async function extractBoardDimensions(files: { filename: string; content: Buffer }[], warnings: string[]): Promise<{ width: number; height: number } | null> {
   try {
     console.log('[gerberParser] Starting Tracespace dimension extraction pipeline...');
     let createParser: any, plot: any, identifyLayers: any;
@@ -175,7 +174,7 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
       ({ identifyLayers } = require('@tracespace/identify-layers'));
       tracespaceAvailable = true;
     } catch (moduleErr: any) {
-      console.error('[gerberParser] @tracespace not available natively. Proceeding to manual parsing.');
+      warnings.push(`Tracespace not available natively — using manual parser fallback.`);
     }
 
     let outlineFile;
@@ -191,7 +190,6 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
                f.filename.toLowerCase().includes('profile');
       });
     } else {
-      // Without tracespace, use aggressive filename pattern matching
       outlineFile = files.find(f => {
         const lower = f.filename.toLowerCase();
         return lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') ||
@@ -203,46 +201,34 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
       });
     }
 
-    // Case 1: If no outline file is found, scan ALL non-drill files for largest bounding box
     if (!outlineFile) {
-      console.warn('[gerberParser] NO OUTLINE FILE IDENTIFIED. Files available:', files.map(f => f.filename));
-      console.warn('[gerberParser] Escalating to full-directory greedy coordinate search.');
-      
+      warnings.push(`No outline file candidate matched (Tried .GKO, edge, outline). Scanning all ${files.length} files...`);
       let bestDims: { width: number; height: number } | null = null;
       let bestArea = 0;
       for (const f of files) {
-        // Skip drill and non-gerber files
         const lower = f.filename.toLowerCase();
-        if (lower.endsWith('.drl') || lower.endsWith('.exc') || lower.endsWith('.txt') ||
-            lower.endsWith('.xln') || lower.endsWith('.ncd') || lower.endsWith('.csv') ||
-            lower.endsWith('.pdf') || lower.endsWith('.png') || lower.endsWith('.jpg')) continue;
+        if (lower.endsWith('.drl') || lower.endsWith('.exc') || lower.endsWith('.txt')) continue;
+        const data = f.content.toString('utf8');
+        if (!data.includes('%') && !data.includes('D01') && !data.includes('D02')) continue;
         
-        try {
-          const data = f.content.toString('utf8');
-          // Quick check: is this actually a Gerber file? (must have % commands)
-          if (!data.includes('%') && !data.includes('D01') && !data.includes('D02')) continue;
-          
-          const dims = manualCoordinateParse(data);
-          if (dims) {
-            const area = dims.width * dims.height;
-            // Pick the SMALLEST valid bounding box (more likely to be the actual board, not a title block)
-            if (bestDims === null || (area > 1 && area < bestArea)) {
-              bestDims = dims;
-              bestArea = area;
-              console.log('[gerberParser] Candidate from', f.filename, ':', dims.width, 'x', dims.height, 'mm');
-            }
+        const dims = manualCoordinateParse(data);
+        if (dims) {
+          const area = dims.width * dims.height;
+          // Strategy: Pick the SMALLEST valid bounding box > 100mm2 to avoid title blocks
+          if (bestDims === null || (area > 100 && area < bestArea)) {
+            bestDims = dims;
+            bestArea = area;
+            warnings.push(`Found candidate in ${f.filename}: ${dims.width}x${dims.height}mm (Area: ${area.toFixed(0)})`);
           }
-        } catch(e) {
-          console.warn('[gerberParser] Failed to parse', f.filename, ':', e);
         }
       }
       if (bestDims) return bestDims;
+      warnings.push(`Greedy coordinate scan found zero valid bounding boxes.`);
       return null;
     }
 
-    console.log('[gerberParser] SELECTING OUTLINE CANDIDATE:', outlineFile.filename);
+    warnings.push(`Picked outline candidate file: ${outlineFile.filename}`);
     const outlineData = outlineFile.content.toString('utf8');
-
     let finalW = 0, finalH = 0;
 
     if (tracespaceAvailable) {
@@ -252,41 +238,34 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
       const image = plot(tree as any);
 
       if (image && image.size && image.size.length === 4) {
-        console.log('[gerberParser] RAW TRACESPACE ENVELOPE:', image.size);
         const [x1, y1, x2, y2] = image.size as [number, number, number, number];
-        const w = x2 - x1;
-        const h = y2 - y1;
+        const w = x2 - x1; const h = y2 - y1;
         const factor = image.units === 'in' ? 25.4 : 1;
         finalW = parseFloat((w * factor).toFixed(2));
         finalH = parseFloat((h * factor).toFixed(2));
-      } else {
-        console.warn('[gerberParser] Tracespace returned an empty envelope bounds.');
       }
     }
 
-    // Case 2: If Tracespace failed or returned 0, fallback to Manual string parsing
     if (finalW <= 0 || finalH <= 0) {
-      console.warn('[gerberParser] Activating internal D-Code parser fallback mechanism...');
       const manualProps = manualCoordinateParse(outlineData);
       if (manualProps) {
         finalW = manualProps.width;
         finalH = manualProps.height;
+        warnings.push(`Manual parser successfully read outline file: ${finalW}x${finalH}mm`);
+      } else {
+        warnings.push(`Manual parser returned null / 0 coordinates for ${outlineFile.filename}`);
       }
     }
 
-    console.log('[gerberParser] BOUNDARY RESOLUTION:', finalW, 'x', finalH, 'mm');
-
-    // Diagnostic Safety Rails
     if (finalW < 1 || finalH < 1 || finalW > 2000 || finalH > 2000) {
-      console.error('[gerberParser] INVALID DIMENSIONS AFTER ALL ATTEMPTS:', finalW, finalH);
-      console.error('[gerberParser] FALLING BACK TO SAFE 100x100 DEFAULTS.');
+      warnings.push(`Parser returned out-of-bounds dimensions: ${finalW}x${finalH}mm. Discarding.`);
       return null;
     }
 
     return { width: finalW, height: finalH };
   } catch (err) {
-    console.error('[gerberParser] extractBoardDimensions ENCOUNTERED FATAL ERROR:', err);
-    return null; // Silent catch
+    warnings.push(`extractBoardDimensions fatal crash: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
   }
 }
 
@@ -349,7 +328,7 @@ export async function parseGerberZip(zipBuffer: Buffer): Promise<ParsedPCBSpec> 
       .filter(e => !e.isDirectory)
       .map(e => ({ filename: path.basename(e.entryName), content: e.getData() }));
 
-    const traceDims = await extractBoardDimensions(gerberFiles);
+    const traceDims = await extractBoardDimensions(gerberFiles, warnings);
 
     // Calculate layer count
     const innerCount = countInnerLayers(filenames);

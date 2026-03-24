@@ -24,6 +24,16 @@ jobs:
         npm install
         npm run build
 
+    - name: 🚀 Deploy Root Server Bootloader
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.HOSTINGER_SSH_HOST }}
+        username: ${{ secrets.HOSTINGER_SSH_USER }}
+        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        port: 65002
+        source: "server.js"
+        target: "~/domains/pulsewritexsolutions.com/"
+
     - name: 🚀 Deploy Backend to Hostinger
       uses: appleboy/scp-action@v0.1.7
       with:

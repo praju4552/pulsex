@@ -5,8 +5,13 @@
  */
 const path = require('path');
 
-// Resolve to pre-compiled backend entry
-const distEntry = path.join(__dirname, 'backend-node', 'dist', 'app.js');
+// Resolve to pre-compiled backend entry on Hostinger (backendnode) and locally (backend-node)
+const distEntryHostinger = path.join(__dirname, 'backendnode', 'dist', 'app.js');
+const distEntryLocal = path.join(__dirname, 'backend-node', 'dist', 'app.js');
 
 // Boot the backend
-require(distEntry);
+try {
+  require(distEntryHostinger);
+} catch (err) {
+  require(distEntryLocal);
+}

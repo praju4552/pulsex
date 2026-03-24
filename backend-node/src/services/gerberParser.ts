@@ -1,8 +1,6 @@
 import AdmZip from 'adm-zip';
 import * as path from 'path';
-import { createParser } from '@tracespace/parser';
-import { plot } from '@tracespace/plotter';
-import { identifyLayers } from '@tracespace/identify-layers';
+// Note: @tracespace loaded dynamically to prevent boot crash if missing
 
 // ─── Layer Detection ─────────────────────────────────────────────────────────
 
@@ -67,7 +65,18 @@ function countInnerLayers(filenames: string[]): number {
 
 async function extractBoardDimensions(files: { filename: string; content: Buffer }[]): Promise<{ width: number; height: number } | null> {
   try {
-    const identified = identifyLayers(files.map(f => f.filename));
+    // Dynamic require so the app boots even if @tracespace is missing on the server
+    let createParser: any, plot: any, identifyLayers: any;
+    try {
+      ({ createParser } = require('@tracespace/parser'));
+      ({ plot } = require('@tracespace/plotter'));
+      ({ identifyLayers } = require('@tracespace/identify-layers'));
+    } catch (moduleErr: any) {
+      console.error('[gerberParser] @tracespace not available:', moduleErr.message);
+      return null;
+    }
+
+    const identified = identifyLayers(files.map((f: any) => f.filename));
 
     const outlineFile = files.find(f => {
       const info = (identified as any)[f.filename];

@@ -1,16 +1,25 @@
 import AdmZip from 'adm-zip';
 import { Readable } from 'stream';
-import { createParser } from '@tracespace/parser';
-import { plot } from '@tracespace/plotter';
-import { identifyLayers as identify } from '@tracespace/identify-layers';
+// Note: @tracespace loaded dynamically to prevent boot crash if missing
 
 const pcbStackup = require('pcb-stackup');
 const gerberToSvg = require('gerber-to-svg');
 
 async function extractBoardDimensions(files: { filename: string; content: Buffer }[]): Promise<{ width: number; height: number; units: string } | null> {
   try {
+    // Dynamic require so the app boots even if @tracespace is missing on the server
+    let createParser: any, plot: any, identify: any;
+    try {
+      ({ createParser } = require('@tracespace/parser'));
+      ({ plot } = require('@tracespace/plotter'));
+      ({ identifyLayers: identify } = require('@tracespace/identify-layers'));
+    } catch (moduleErr: any) {
+      console.error('[gerberRenderer] @tracespace not available:', moduleErr.message);
+      return null;
+    }
+
     // Step A: Identify which file is the board outline
-    const identified = identify(files.map(f => f.filename));
+    const identified = identify(files.map((f: any) => f.filename));
     
     const outlineFile = files.find(f => {
       const layerType = identified[f.filename]?.type;

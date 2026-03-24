@@ -53,8 +53,6 @@ jobs:
         password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
         port: 65002
         script: |
-          # Ensure Node 18/20 environment is configured if nvm is available
-          export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH || true
           cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
           npm install --omit=dev
 

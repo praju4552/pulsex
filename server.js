@@ -20,9 +20,17 @@ let loaded = false;
 for (const entry of candidates) {
   if (fs.existsSync(entry)) {
     console.log('[server.js] Booting from:', entry);
-    require(entry);
-    loaded = true;
-    break;
+    try {
+      require(entry);
+      loaded = true;
+      break;
+    } catch (err) {
+      console.error(`[server.js] FATAL BOOT EXCEPTION for ${entry}:`, err);
+      try {
+        fs.writeFileSync(path.join(__dirname, 'server-crash.log'), err.stack || String(err));
+      } catch (logErr) {} // Ignore log permission issues
+      throw err; // Re-throw to inform Hostinger process monitor
+    }
   }
 }
 

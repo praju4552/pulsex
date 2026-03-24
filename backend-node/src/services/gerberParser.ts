@@ -61,55 +61,101 @@ function countInnerLayers(filenames: string[]): number {
   return inner.size;
 }
 
-// ─── Manual Coordinate Parser (Audit 5: Fallback) ─────────────────────────────
+// ─── Universal Manual Coordinate Parser ───────────────────────────────────────
+// Handles ALL Gerber dialects: KiCad, Altium, Eagle, EasyEDA, OrCAD, etc.
 
 function manualCoordinateParse(gerberData: string): { width: number; height: number } | null {
   try {
-    let decimalsX = 4, decimalsY = 4;
-    let isInch = true;
-    
-    // Fallback detection logic
-    if (gerberData.includes('%MOMM*%')) isInch = false;
-    else if (gerberData.includes('%MOIN*%')) isInch = true;
+    console.log('[gerberParser] Running universal manual coordinate parser...');
 
-    const fsMatch = gerberData.match(/%FS[LT]?[AI]?X(\d)(\d)Y(\d)(\d)\*%/);
+    // ── Step 1: Detect units ──
+    let isInch = false; // Default to mm (safer assumption)
+    if (gerberData.includes('%MOIN*%')) isInch = true;
+    else if (gerberData.includes('%MOMM*%')) isInch = false;
+    console.log('[gerberParser] Units detected:', isInch ? 'INCH' : 'MM');
+
+    // ── Step 2: Parse Format Specification ──
+    // Formats: %FSLAX24Y24*%, %FSLAX36Y36*%, %FSTAX25Y25*%, etc.
+    let intX = 2, decX = 4, intY = 2, decY = 4;
+    let hasFS = false;
+    const fsMatch = gerberData.match(/%FS([LTD]?)([AI]?)X(\d)(\d)Y(\d)(\d)\*%/);
     if (fsMatch) {
-      decimalsX = parseInt(fsMatch[2], 10);
-      decimalsY = parseInt(fsMatch[4], 10);
+      intX = parseInt(fsMatch[3], 10);
+      decX = parseInt(fsMatch[4], 10);
+      intY = parseInt(fsMatch[5], 10);
+      decY = parseInt(fsMatch[6], 10);
+      hasFS = true;
+      console.log('[gerberParser] FS header found:', fsMatch[0], `X=${intX}.${decX} Y=${intY}.${decY}`);
+    } else {
+      console.warn('[gerberParser] No %FS header found — using defaults X2.4 Y2.4');
     }
-    
-    const divisorX = Math.pow(10, decimalsX);
-    const divisorY = Math.pow(10, decimalsY);
 
+    const divisorX = Math.pow(10, decX);
+    const divisorY = Math.pow(10, decY);
+
+    // ── Step 3: Extract ALL coordinates using multiple strategies ──
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
+    let coordCount = 0;
+    let lastX = 0, lastY = 0;
 
-    // Greedily capture all plotting coordinate movements
-    const coordRegex = /X([\+\-]?\d+)Y([\+\-]?\d+)D0?[123]\*/g;
-    let match;
-    let found = false;
-    while ((match = coordRegex.exec(gerberData)) !== null) {
-      found = true;
-      const x = parseInt(match[1], 10) / divisorX;
-      const y = parseInt(match[2], 10) / divisorY;
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
+    // Split into lines for line-by-line parsing (handles ALL formats)
+    const lines = gerberData.split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Skip comments, aperture definitions, and macro commands
+      if (trimmed.startsWith('G04') || trimmed.startsWith('%') || trimmed.startsWith('M')) continue;
+
+      // Extract X coordinate from this line (if present)
+      const xMatch = trimmed.match(/X([+\-]?\d+)/);
+      // Extract Y coordinate from this line (if present)
+      const yMatch = trimmed.match(/Y([+\-]?\d+)/);
+
+      if (xMatch) lastX = parseInt(xMatch[1], 10);
+      if (yMatch) lastY = parseInt(yMatch[1], 10);
+
+      // Only track coordinates that are actual draw/move commands
+      // D01=draw, D02=move, D03=flash, or inherited (no D code = previous mode)
+      const isDraw = /D0?[123]\*/.test(trimmed) || 
+                     (trimmed.endsWith('*') && (xMatch || yMatch) && !trimmed.startsWith('%'));
+
+      if (isDraw && (xMatch || yMatch)) {
+        const x = lastX / divisorX;
+        const y = lastY / divisorY;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        coordCount++;
+      }
     }
 
-    if (!found) return null;
+    console.log('[gerberParser] Total coordinates extracted:', coordCount);
+
+    if (coordCount < 2) {
+      console.warn('[gerberParser] Not enough coordinates found for bounding box');
+      return null;
+    }
 
     let w = maxX - minX;
     let h = maxY - minY;
 
+    // Convert to mm if in inches
     if (isInch) {
       w *= 25.4;
       h *= 25.4;
     }
 
-    return { width: parseFloat(w.toFixed(2)), height: parseFloat(h.toFixed(2)) };
-  } catch(e) {
+    const width = parseFloat(w.toFixed(2));
+    const height = parseFloat(h.toFixed(2));
+
+    console.log('[gerberParser] Manual parse result:', width, 'x', height, 'mm');
+
+    if (width <= 0 || height <= 0) return null;
+
+    return { width, height };
+  } catch (e) {
     console.error('[gerberParser] Manual Coordinate Parse threw exception:', e);
     return null;
   }
@@ -145,23 +191,52 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
                f.filename.toLowerCase().includes('profile');
       });
     } else {
-      outlineFile = files.find(f => f.filename.match(/\.(GKO|GM1|GBR|GML)$/i) || f.filename.toLowerCase().includes('edge'));
+      // Without tracespace, use aggressive filename pattern matching
+      outlineFile = files.find(f => {
+        const lower = f.filename.toLowerCase();
+        return lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') ||
+               lower.endsWith('.bor') || lower.endsWith('.dim') ||
+               lower.includes('edge') || lower.includes('outline') || 
+               lower.includes('profile') || lower.includes('border') ||
+               lower.includes('boardoutline') || lower.includes('board_outline') ||
+               lower.includes('mechanical') || /\.gm\d+$/i.test(lower);
+      });
     }
 
-    // Case 1: If no outline file is found, aggressively scan all files for the largest bounding box
+    // Case 1: If no outline file is found, scan ALL non-drill files for largest bounding box
     if (!outlineFile) {
       console.warn('[gerberParser] NO OUTLINE FILE IDENTIFIED. Files available:', files.map(f => f.filename));
       console.warn('[gerberParser] Escalating to full-directory greedy coordinate search.');
       
-      let maxW = 0, maxH = 0;
+      let bestDims: { width: number; height: number } | null = null;
+      let bestArea = 0;
       for (const f of files) {
-          if (!f.filename.match(/\.(GBR|GER|GKO)$/i)) continue;
-          const dims = manualCoordinateParse(f.content.toString('utf8'));
-          if (dims && (dims.width * dims.height) > (maxW * maxH)) {
-              maxW = dims.width; maxH = dims.height;
+        // Skip drill and non-gerber files
+        const lower = f.filename.toLowerCase();
+        if (lower.endsWith('.drl') || lower.endsWith('.exc') || lower.endsWith('.txt') ||
+            lower.endsWith('.xln') || lower.endsWith('.ncd') || lower.endsWith('.csv') ||
+            lower.endsWith('.pdf') || lower.endsWith('.png') || lower.endsWith('.jpg')) continue;
+        
+        try {
+          const data = f.content.toString('utf8');
+          // Quick check: is this actually a Gerber file? (must have % commands)
+          if (!data.includes('%') && !data.includes('D01') && !data.includes('D02')) continue;
+          
+          const dims = manualCoordinateParse(data);
+          if (dims) {
+            const area = dims.width * dims.height;
+            // Pick the SMALLEST valid bounding box (more likely to be the actual board, not a title block)
+            if (bestDims === null || (area > 1 && area < bestArea)) {
+              bestDims = dims;
+              bestArea = area;
+              console.log('[gerberParser] Candidate from', f.filename, ':', dims.width, 'x', dims.height, 'mm');
+            }
           }
+        } catch(e) {
+          console.warn('[gerberParser] Failed to parse', f.filename, ':', e);
+        }
       }
-      if (maxW > 0 && maxH > 0) return { width: maxW, height: maxH };
+      if (bestDims) return bestDims;
       return null;
     }
 

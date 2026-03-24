@@ -1,5 +1,8 @@
 import AdmZip from 'adm-zip';
 import * as path from 'path';
+import { createParser } from '@tracespace/parser';
+import { plot } from '@tracespace/plotter';
+import { identifyLayers } from '@tracespace/identify-layers';
 
 // ─── Layer Detection ─────────────────────────────────────────────────────────
 
@@ -60,65 +63,59 @@ function countInnerLayers(filenames: string[]): number {
   return inner.size;
 }
 
-// ─── Gerber Coordinate Parsing ────────────────────────────────────────────────
+// ─── Tracespace Board Dimension Extraction ───────────────────────────────────
 
-interface Bounds {
-  minX: number; maxX: number;
-  minY: number; maxY: number;
-}
+async function extractBoardDimensions(files: { filename: string; content: Buffer }[]): Promise<{ width: number; height: number } | null> {
+  try {
+    const identified = identifyLayers(files.map(f => f.filename));
 
-function parseGerberBounds(content: string): Bounds | null {
-  const bounds: Bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
-  let unit = 'mm'; // default
-  let formatX = 2; // integer digits
-  let formatY = 2;
-  let decimalX = 4; // decimal digits
-  let decimalY = 4;
-  let hasCoords = false;
+    const outlineFile = files.find(f => {
+      const info = (identified as any)[f.filename];
+      const layerType = info?.type;
+      return layerType === 'outline' ||
+             f.filename.match(/\.(GKO|GM1|GBR)$/i) ||
+             f.filename.toLowerCase().includes('edge') ||
+             f.filename.toLowerCase().includes('outline') ||
+             f.filename.toLowerCase().includes('profile');
+    });
 
-  const lines = content.split('\n');
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Detect unit: %MOIN*% or %MOMM*%
-    if (trimmed.includes('%MOIN*%') || trimmed.includes('MOIN')) {
-      unit = 'inch';
-    } else if (trimmed.includes('%MOMM*%') || trimmed.includes('MOMM')) {
-      unit = 'mm';
+    if (!outlineFile) {
+      console.error('[gerberParser] NO OUTLINE FILE FOUND:', files.map(f => f.filename));
+      return null;
     }
 
-    // Detect format: %FSLAX24Y24*% or similar
-    const fmtMatch = trimmed.match(/%FS[LT]A?X(\d)(\d)Y(\d)(\d)\*?%/i);
-    if (fmtMatch) {
-      formatX = parseInt(fmtMatch[1]);
-      decimalX = parseInt(fmtMatch[2]);
-      formatY = parseInt(fmtMatch[3]);
-      decimalY = parseInt(fmtMatch[4]);
+    console.log('[gerberParser] USING OUTLINE FILE:', outlineFile.filename);
+
+    const parser = createParser();
+    parser.feed(outlineFile.content.toString('utf8'));
+    const tree = parser.results();
+    const image = plot(tree as any);
+
+    if (!image || !image.size || image.size.length === 0) {
+      console.error('[gerberParser] IMAGE SIZE ENVELOPE IS NULL');
+      return null;
     }
 
-    // Match coordinate lines like D01/D02/D03 commands
-    const coordMatch = trimmed.match(/X(-?\d+)Y(-?\d+)/i);
-    if (coordMatch) {
-      const divisorX = Math.pow(10, decimalX);
-      const divisorY = Math.pow(10, decimalY);
-      let x = parseInt(coordMatch[1]) / divisorX;
-      let y = parseInt(coordMatch[2]) / divisorY;
+    console.log('[gerberParser] RAW SIZE ENVELOPE:', image.size);
+    console.log('[gerberParser] IMAGE UNITS:', image.units);
 
-      // Convert inch → mm
-      if (unit === 'inch') { x *= 25.4; y *= 25.4; }
+    const [x1, y1, x2, y2] = image.size as [number, number, number, number];
+    const w = x2 - x1;
+    const h = y2 - y1;
+    const factor = image.units === 'in' ? 25.4 : 1;
+    const finalW = parseFloat((w * factor).toFixed(2));
+    const finalH = parseFloat((h * factor).toFixed(2));
 
-      bounds.minX = Math.min(bounds.minX, x);
-      bounds.maxX = Math.max(bounds.maxX, x);
-      bounds.minY = Math.min(bounds.minY, y);
-      bounds.maxY = Math.max(bounds.maxY, y);
-      hasCoords = true;
-    }
+    console.log('[gerberParser] FINAL WIDTH MM:', finalW);
+    console.log('[gerberParser] FINAL HEIGHT MM:', finalH);
+
+    if (finalW <= 0 || finalH <= 0) return null;
+
+    return { width: finalW, height: finalH };
+  } catch (err) {
+    console.error('[gerberParser] extractBoardDimensions ERROR:', err);
+    return null;
   }
-
-  if (!hasCoords) return null;
-
-  return bounds;
 }
 
 // ─── Surface Finish Detection ─────────────────────────────────────────────────
@@ -145,10 +142,9 @@ export interface ParsedPCBSpec {
   warnings: string[];
 }
 
-export function parseGerberZip(zipBuffer: Buffer): ParsedPCBSpec {
+export async function parseGerberZip(zipBuffer: Buffer): Promise<ParsedPCBSpec> {
   const warnings: string[] = [];
   let detectedLayers: string[] = [];
-  let boardBounds: Bounds | null = null;
   let fileCount = 0;
 
   try {
@@ -175,33 +171,12 @@ export function parseGerberZip(zipBuffer: Buffer): ParsedPCBSpec {
       }
     }
 
-    // Try to parse board outline for dimensions
-    if (outlineEntry) {
-      try {
-        const content = outlineEntry.getData().toString('utf8');
-        boardBounds = parseGerberBounds(content);
-      } catch (_) {
-        warnings.push('Could not parse board outline file.');
-      }
-    }
+    // ── Use Tracespace engine for precise board dimensions ──
+    const gerberFiles = entries
+      .filter(e => !e.isDirectory)
+      .map(e => ({ filename: e.entryName, content: e.getData() }));
 
-    // If no explicit outline, try top copper as fallback
-    if (!boardBounds) {
-      for (const entry of entries) {
-        if (entry.isDirectory) continue;
-        const lt = detectLayerType(entry.entryName);
-        if (lt === 'Top Copper') {
-          try {
-            const content = entry.getData().toString('utf8');
-            boardBounds = parseGerberBounds(content);
-            if (boardBounds) {
-              warnings.push('Board outline estimated from Top Copper extents.');
-              break;
-            }
-          } catch (_) {}
-        }
-      }
-    }
+    const traceDims = await extractBoardDimensions(gerberFiles);
 
     // Calculate layer count
     const innerCount = countInnerLayers(filenames);
@@ -227,15 +202,15 @@ export function parseGerberZip(zipBuffer: Buffer): ParsedPCBSpec {
 
     // Confidence level
     let confidence: 'high' | 'medium' | 'low' = 'low';
-    if (boardBounds && hasTopCopper && hasBottomCopper) confidence = 'high';
-    else if (boardBounds || (hasTopCopper && hasBottomCopper)) confidence = 'medium';
+    if (traceDims && hasTopCopper && hasBottomCopper) confidence = 'high';
+    else if (traceDims || (hasTopCopper && hasBottomCopper)) confidence = 'medium';
 
-    // Dimensions from bounds
+    // Dimensions from Tracespace engine
     let dimX = 0;
     let dimY = 0;
-    if (boardBounds) {
-      dimX = parseFloat((boardBounds.maxX - boardBounds.minX).toFixed(2));
-      dimY = parseFloat((boardBounds.maxY - boardBounds.minY).toFixed(2));
+    if (traceDims) {
+      dimX = traceDims.width;
+      dimY = traceDims.height;
       // Guard against nonsensical values
       if (dimX <= 0 || dimX > 1000) { dimX = 100; warnings.push('X dimension out of range — defaulted to 100mm.'); }
       if (dimY <= 0 || dimY > 1000) { dimY = 100; warnings.push('Y dimension out of range — defaulted to 100mm.'); }

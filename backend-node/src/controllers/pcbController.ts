@@ -16,7 +16,7 @@ export async function parsePCBGerber(req: Request, res: Response) {
       return res.status(400).json({ error: 'Only .zip, .rar, or .gbz files are accepted.' });
     }
 
-    const parsed = parseGerberZip(req.file.buffer);
+    const parsed = await parseGerberZip(req.file.buffer);
 
     return res.json({
       success: true,

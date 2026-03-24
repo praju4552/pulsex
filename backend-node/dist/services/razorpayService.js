@@ -12,15 +12,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyPaymentSignature = exports.createRazorpayOrder = exports.razorpay = void 0;
+exports.verifyPaymentSignature = exports.createRazorpayOrder = exports.getRazorpayInstance = void 0;
 const razorpay_1 = __importDefault(require("razorpay"));
 const crypto_1 = __importDefault(require("crypto"));
-exports.razorpay = new razorpay_1.default({
-    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
-});
+let _razorpayInstance = null;
+const getRazorpayInstance = () => {
+    if (!_razorpayInstance) {
+        _razorpayInstance = new razorpay_1.default({
+            key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+            key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
+        });
+    }
+    return _razorpayInstance;
+};
+exports.getRazorpayInstance = getRazorpayInstance;
 const createRazorpayOrder = (amountInPaise, receiptId) => __awaiter(void 0, void 0, void 0, function* () {
-    return yield exports.razorpay.orders.create({
+    return yield (0, exports.getRazorpayInstance)().orders.create({
         amount: amountInPaise,
         currency: 'INR',
         receipt: receiptId,

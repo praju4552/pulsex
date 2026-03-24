@@ -215,8 +215,12 @@ const whatsappRequestOtp = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 expiresAt
             }
         });
-        console.log(`[WhatsApp OTP] Send trigger initiated for ${phone} at ${new Date().toISOString()}`);
-        res.json({ message: 'OTP generated and sent' });
+        // [DEV MODE] Log OTP and return in response
+        console.log(`[WHATSAPP-DEV] OTP for ${phone}: ${otp}`);
+        res.json({
+            message: 'OTP generated and sent',
+            devModeOtp: otp
+        });
     }
     catch (error) {
         console.error('WhatsApp request error:', error);

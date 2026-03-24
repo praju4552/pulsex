@@ -26,11 +26,11 @@ export const createInquiry = async (req: Request, res: Response) => {
     }
 
     // Validate enums
-    if (!['SEM_TEM', 'PROJECT_DEV', 'PCB_DESIGN'].includes(serviceType)) {
-      return res.status(400).json({ success: false, error: 'serviceType must be SEM_TEM, PROJECT_DEV, or PCB_DESIGN' });
+    if (!['SEM_TEM', 'PROJECT_DEV', 'PCB_DESIGN', 'SUPPORT'].includes(serviceType)) {
+      return res.status(400).json({ success: false, error: 'Invalid serviceType' });
     }
-    if (!['REQUEST_CALLBACK', 'GET_QUOTE'].includes(inquiryType)) {
-      return res.status(400).json({ success: false, error: 'inquiryType must be REQUEST_CALLBACK or GET_QUOTE' });
+    if (!['REQUEST_CALLBACK', 'GET_QUOTE', 'SUPPORT_REQUEST'].includes(inquiryType)) {
+      return res.status(400).json({ success: false, error: 'Invalid inquiryType' });
     }
 
     const inquiry = await prisma.serviceInquiry.create({

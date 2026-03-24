@@ -238,7 +238,6 @@ const QTY_OPTS = [5, 10, 15, 20, 25, 30, 50, 75, 100, 200, 300, 500, 1000];
 export default function PCBPrinting() {
   const ref = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'config' | 'history'>('config');
   
   const [pcbPricing, setPcbPricing] = useState<any>(null);
 
@@ -256,7 +255,7 @@ export default function PCBPrinting() {
   const [ship, setShip] = useState('dhl');
   const [showHistory, setShowHistory] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [openSections, setOpenSections] = useState({ spec: true, highspec: true, advanced: true });
+  const [openSections, setOpenSections] = useState({ spec: true, highspec: true, advanced: false });
   const [history, setHistory] = useState<HistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('pcb_history');
@@ -583,6 +582,18 @@ export default function PCBPrinting() {
               </p>
               <input ref={ref} type="file" accept=".zip,.rar,.gbr,.kicad_pcb,.brd,.gbz" className="hidden" onChange={handleFileChange} />
             </div>
+
+            {/* Reset / Clear File Button */}
+            {(parseStatus === 'success' || parseStatus === 'error') && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => { setParseStatus('idle'); setParseResult(null); setParseWarnings([]); setUploadedFile(null); setRawGerberFile(null); setShowViewer(false); if (ref.current) ref.current.value = ''; }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/10 transition-all"
+                >
+                  <X className="w-4 h-4" /> Clear File &amp; Reset
+                </button>
+              </div>
+            )}
 
             {/* ── Scan Result Banner ── */}
             {parseStatus === 'success' && parseResult && (

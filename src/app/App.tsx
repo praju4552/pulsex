@@ -19,6 +19,7 @@ import PrototypingAuth from './components/prototyping/PrototypingAuth';
 import PrototypingOrders from './components/prototyping/PrototypingOrders';
 import PrototypingTrack from './components/prototyping/PrototypingTrack';
 import PrototypingAccount from './components/prototyping/PrototypingAccount';
+import ContactSupport from './components/prototyping/ContactSupport';
 
 // CMS Admin Pages
 import CMSLayout from './components/cms/CMSLayout';
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/prototyping/orders" element={<PrototypingOrders />} />
           <Route path="/prototyping/track" element={<PrototypingTrack />} />
           <Route path="/prototyping/account" element={<PrototypingAccount />} />
+          <Route path="/prototyping/support" element={<ContactSupport />} />
           <Route path="/payment/success" element={<PaymentSuccessPage />} />
 
           {/* CMS Admin */}
@@ -68,6 +70,7 @@ export default function App() {
             <Route path="pcb-design-inquiries" element={<InquiriesPage serviceFilter="PCB_DESIGN" title="PCB Design Inquiries" />} />
             <Route path="sem-tem" element={<InquiriesPage serviceFilter="SEM_TEM" title="SEM/TEM Analysis Inquiries" />} />
             <Route path="project-dev" element={<InquiriesPage serviceFilter="PROJECT_DEV" title="Project Development Inquiries" />} />
+            <Route path="support-inbox" element={<InquiriesPage serviceFilter="SUPPORT" title="Support Inbox" />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="payments" element={<CMSPayments />} />
             <Route path="pricing" element={<PricingPage />} />

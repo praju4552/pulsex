@@ -1,6 +1,6 @@
 import { PrototypingHeader } from './PrototypingHeader';
 import { PrototypingFAQ } from './PrototypingFAQ';
-import { HelpCircle, Upload, Loader2, CheckCircle2, AlertTriangle, Shield, Clock, Info, Ruler } from 'lucide-react';
+import { HelpCircle, Upload, Loader2, CheckCircle2, AlertTriangle, Shield, Clock, Info, Ruler, X } from 'lucide-react';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../../api/config';
@@ -365,6 +365,18 @@ export default function LaserCutting() {
               <p className="text-xs text-text-placeholder mt-1 flex items-center justify-center gap-1"><Shield className="w-3 h-3" /> Secure and confidential.</p>
               <input ref={ref} type="file" className="hidden" onChange={handleFileChange} />
             </div>
+
+            {/* Reset / Clear File Button */}
+            {(parseStatus === 'success' || parseStatus === 'error') && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => { setUploadedFile(null); setParseStatus('idle'); setErrorMessage(''); if (ref.current) ref.current.value = ''; }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/10 transition-all"
+                >
+                  <X className="w-4 h-4" /> Clear Design File
+                </button>
+              </div>
+            )}
 
             {/* ── Model Stats card — shown only after successful upload ── */}
             {parseStatus === 'success' && (

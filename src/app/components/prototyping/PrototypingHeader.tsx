@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { to: '/prototyping/laser-cutting', label: 'Laser Cutting' },
   { to: '/prototyping/sem-tem', label: 'SEM/TEM' },
   { to: '/prototyping/project-dev', label: 'Project Dev' },
+  { to: '/prototyping/support', label: 'Contact Support' },
 ];
 
 export function PrototypingHeader() {

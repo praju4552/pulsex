@@ -49,11 +49,14 @@ const initiatePayment = (req, res) => __awaiter(void 0, void 0, void 0, function
 });
 exports.initiatePayment = initiatePayment;
 const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     try {
         const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderType, orderIds } = req.body;
         const isValid = (0, razorpayService_1.verifyPaymentSignature)(razorpayOrderId, razorpayPaymentId, razorpaySignature);
-        if (!isValid)
-            return res.status(400).json({ error: 'Invalid payment signature' });
+        if (!isValid) {
+            console.error(`Signature mismatch. Order: ${razorpayOrderId}, Secret length: ${((_a = process.env.RAZORPAY_KEY_SECRET) === null || _a === void 0 ? void 0 : _a.length) || 0}`);
+            return res.status(400).json({ error: `Signature mismatch. Secret key length in memory: ${((_b = process.env.RAZORPAY_KEY_SECRET) === null || _b === void 0 ? void 0 : _b.length) || 0} chars. Did you restart the server?` });
+        }
         yield db_1.default.payment.update({
             where: { razorpayOrderId },
             data: { razorpayPaymentId, razorpaySignature, status: 'PAID' },
@@ -88,7 +91,7 @@ const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
     catch (err) {
         console.error('Payment verification error:', err);
-        res.status(500).json({ error: 'Verification failed' });
+        res.status(500).json({ error: `Server Error: ${err.message || 'Verification failed internally'}` });
     }
 });
 exports.verifyPayment = verifyPayment;

@@ -3,7 +3,7 @@ import { PrototypingHeader } from './PrototypingHeader';
 import { PrototypingFAQ } from './PrototypingFAQ';
 import {
   Upload, Loader2, AlertTriangle,
-  Check, ChevronRight, IndianRupee, CheckCircle2, Cpu, Settings
+  Check, ChevronRight, IndianRupee, CheckCircle2, Cpu, Settings, RefreshCcw
 } from 'lucide-react';
 import * as THREE from 'three';
 import { API_BASE_URL } from '../../../api/config';
@@ -568,12 +568,20 @@ export default function ThreeDPrinting() {
                                         {price.total}
                                     </div>
                                 </div>
-                                <button 
-                                    onClick={submitOrder}
-                                    className="px-8 py-4 bg-[#00cc55] hover:bg-[#00cc55]/90 text-black font-black rounded-2xl flex items-center gap-3 shadow-[0_0_30px_rgba(0,204,85,0.3)] transition-all hover:scale-105 active:scale-95"
-                                >
-                                    Confirm Order <ChevronRight className="w-5 h-5" />
-                                </button>
+                                <div className="flex flex-col items-end gap-2">
+                                    <button 
+                                        onClick={submitOrder}
+                                        className="px-8 py-4 bg-[#00cc55] hover:bg-[#00cc55]/90 text-black font-black rounded-2xl flex items-center gap-3 shadow-[0_0_30px_rgba(0,204,85,0.3)] transition-all hover:scale-105 active:scale-95"
+                                    >
+                                        Confirm Order <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => { setStep('upload'); setFile(null); setFileId(null); setMetadata(null); setError(null); }}
+                                        className="flex items-center gap-2 px-4 py-2 text-xs text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/10 transition-all"
+                                    >
+                                        <RefreshCcw className="w-3.5 h-3.5" /> Start Over
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

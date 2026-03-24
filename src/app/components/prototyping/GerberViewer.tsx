@@ -95,14 +95,12 @@ export default function GerberViewer({ file }: GerberViewerProps) {
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        const delta = e.deltaY * -0.01;
-        setZoom(prevZoom => {
-          const newZoom = Math.max(0.1, Math.min(10, prevZoom * (1 + delta * 0.1)));
-          return newZoom;
-        });
-      }
+      e.preventDefault();
+      const delta = e.deltaY * -0.01;
+      setZoom(prevZoom => {
+        const newZoom = Math.max(0.1, Math.min(10, prevZoom * (1 + delta * 0.1)));
+        return newZoom;
+      });
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
@@ -110,7 +108,6 @@ export default function GerberViewer({ file }: GerberViewerProps) {
   }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!e.ctrlKey) return;
     setIsDragging(true);
     dragStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
   };
@@ -145,7 +142,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
            </div>
            <div className="w-px h-4 bg-white/10" />
            <span className="text-[10px] text-zinc-600 font-mono flex items-center gap-1.5">
-            <kbd className="px-1 border border-border-glass rounded bg-surface-100">Ctrl</kbd> + Scroll/Drag
+            Scroll to zoom · Drag to pan
           </span>
         </div>
       </div>
@@ -208,9 +205,15 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                   <div className="w-2 h-2 rounded-full bg-[#00cc55] animate-pulse" />
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00ff6a] drop-shadow-[0_0_8px_rgba(0,255,106,0.3)]">PCB STACKUP</span>
                 </div>
-                <div className="flex bg-zinc-900/80 rounded-lg p-0.5 border border-white/10 shadow-inner">
-                  <button onClick={() => setActiveView('top')} className={`px-2.5 py-1 rounded-md text-[9px] font-bold transition-all ${activeView === 'top' ? 'bg-[#00cc55] text-black shadow-lg shadow-[#00cc55]/20' : 'text-zinc-400 hover:text-white'}`}>TOP</button>
-                  <button onClick={() => setActiveView('bottom')} className={`px-2.5 py-1 rounded-md text-[9px] font-bold transition-all ${activeView === 'bottom' ? 'bg-[#00cc55] text-black shadow-lg shadow-[#00cc55]/20' : 'text-zinc-400 hover:text-white'}`}>BOT</button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setVisibility(Object.fromEntries(layers.map(l => [l.filename, true])))} className="px-1.5 py-0.5 text-[9px] font-bold text-[#00cc55]/70 hover:text-[#00cc55] transition-colors">ALL</button>
+                  <span className="text-white/10 text-xs">|</span>
+                  <button onClick={() => setVisibility(Object.fromEntries(layers.map(l => [l.filename, false])))} className="px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 hover:text-white transition-colors">NONE</button>
+                  <div className="w-px h-3 bg-white/10 mx-1" />
+                  <div className="flex bg-zinc-900/80 rounded-lg p-0.5 border border-white/10 shadow-inner">
+                    <button onClick={() => setActiveView('top')} className={`px-2.5 py-1 rounded-md text-[9px] font-bold transition-all ${activeView === 'top' ? 'bg-[#00cc55] text-black shadow-lg shadow-[#00cc55]/20' : 'text-zinc-400 hover:text-white'}`}>TOP</button>
+                    <button onClick={() => setActiveView('bottom')} className={`px-2.5 py-1 rounded-md text-[9px] font-bold transition-all ${activeView === 'bottom' ? 'bg-[#00cc55] text-black shadow-lg shadow-[#00cc55]/20' : 'text-zinc-400 hover:text-white'}`}>BOT</button>
+                  </div>
                 </div>
               </div>
 
@@ -296,7 +299,10 @@ export default function GerberViewer({ file }: GerberViewerProps) {
 
       <style>{`
         ${layers.map((l) => !visibility[l.filename] ? `
-          #gerber-preview_${l.id} { display: none !important; }
+          #gerber-preview_${l.id},
+          [id*="${l.id}"],
+          [data-layer="${l.filename}"],
+          g[id*="${l.filename.replace(/[^a-zA-Z0-9]/g, '')}"] { display: none !important; }
         ` : '').join('')}
         
         .gerber-svg-container svg {

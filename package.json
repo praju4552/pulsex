@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "start": "cd backend-node && npx prisma generate && npx prisma db push && node dist/app.js",
+    "start": "cd backend-node && node dist/app.js",
     "dev": "vite",
     "build": "echo 'Frontend pre-compiled'",
     "build:vite": "vite build",

@@ -4,7 +4,7 @@
     "description": "Backend service for Project Templates module",
     "main": "dist/app.js",
     "scripts": {
-        "start": "npm install --omit=dev && npx prisma generate && npx prisma db push && node dist/app.js",
+        "start": "node dist/app.js",
         "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
         "build": "echo 'Pre-built dist folder used'",
         "build:ts": "tsc",

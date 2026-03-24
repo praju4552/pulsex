@@ -43,6 +43,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
   const [isPanelExpanded, setIsPanelExpanded] = useState(false);
+  const [isolatedLayer, setIsolatedLayer] = useState<string | null>(null); // PCBWay-style isolate
   const dragStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
@@ -94,12 +95,52 @@ export default function GerberViewer({ file }: GerberViewerProps) {
     const next = Object.fromEntries(layers.map(l => [l.filename, true]));
     setVisibility(next);
     applyVisibility(next, layers);
+    setIsolatedLayer(null);
   };
 
   const hideAll = () => {
     const next = Object.fromEntries(layers.map(l => [l.filename, false]));
     setVisibility(next);
     applyVisibility(next, layers);
+    setIsolatedLayer(null);
+  };
+
+  // PCBWay isolate: click a layer name (not the eye) to show ONLY that layer
+  const isolateLayer = (filename: string) => {
+    if (isolatedLayer === filename) {
+      // Already isolated → restore all
+      setIsolatedLayer(null);
+      const next = Object.fromEntries(layers.map(l => [l.filename, visibility[l.filename] !== false]));
+      applyVisibility(next, layers);
+    } else {
+      setIsolatedLayer(filename);
+      // Show only this layer, hide all others
+      const next = Object.fromEntries(layers.map(l => [l.filename, l.filename === filename]));
+      applyVisibility(next, layers);
+    }
+  };
+
+  // PCBWay hover highlight: dim other layers while hovering
+  const onLayerHoverEnter = (filename: string) => {
+    const svgContainer = svgContainerRef.current;
+    if (!svgContainer) return;
+    layers.forEach(layer => {
+      const el = svgContainer.querySelector(`#gerber-preview_${layer.id}`) ||
+                 svgContainer.querySelector(`[id="gerber-preview_${layer.id}"]`);
+      if (el) {
+        (el as HTMLElement).style.opacity = layer.filename === filename ? '1' : '0.15';
+      }
+    });
+  };
+
+  const onLayerHoverLeave = () => {
+    const svgContainer = svgContainerRef.current;
+    if (!svgContainer) return;
+    layers.forEach(layer => {
+      const el = svgContainer.querySelector(`#gerber-preview_${layer.id}`) ||
+                 svgContainer.querySelector(`[id="gerber-preview_${layer.id}"]`);
+      if (el) (el as HTMLElement).style.opacity = '';
+    });
   };
 
   useEffect(() => {
@@ -279,6 +320,9 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#00cc55] animate-pulse" />
                       <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00ff6a]">PCB Stackup</span>
+                      {isolatedLayer && (
+                        <span className="ml-1 px-1.5 py-0.5 text-[8px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full">ISOLATED</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       {/* TOP / BOT toggle */}
@@ -308,21 +352,27 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                             <button
                               key={layer.filename}
                               onClick={() => toggleLayer(layer.filename)}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.05] transition-all text-left ${!isVisible ? 'opacity-40' : ''}`}
+                              onMouseEnter={() => onLayerHoverEnter(layer.filename)}
+                              onMouseLeave={onLayerHoverLeave}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.05] transition-all text-left ${!isVisible ? 'opacity-40' : ''} ${isolatedLayer === layer.filename ? 'bg-amber-500/10 ring-1 ring-amber-500/20 rounded-lg' : ''}`}
                             >
                               {/* Color dot */}
                               <div
                                 className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10"
                                 style={{ backgroundColor: LAYER_COLORS[layer.type] || '#888' }}
                               />
-                              {/* Label */}
-                              <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-bold text-white truncate">
+                              {/* Label — click to ISOLATE (PCBWay feature) */}
+                              <div
+                                className="flex-1 min-w-0 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); isolateLayer(layer.filename); }}
+                                title={isolatedLayer === layer.filename ? 'Click to restore all layers' : 'Click to isolate this layer'}
+                              >
+                                <div className={`text-[10px] font-bold truncate ${isolatedLayer === layer.filename ? 'text-amber-400' : 'text-white'}`}>
                                   {LAYER_LABELS[layer.type] || layer.type}
                                 </div>
                                 <div className="text-[8px] text-zinc-500 font-mono truncate">{layer.filename}</div>
                               </div>
-                              {/* Eye icon */}
+                              {/* Eye icon — click to toggle visibility */}
                               <div className={`shrink-0 transition-colors ${isVisible ? 'text-[#00cc55]' : 'text-zinc-700'}`}>
                                 {isVisible
                                   ? <Eye className="w-3.5 h-3.5 drop-shadow-[0_0_6px_rgba(0,204,85,0.5)]" />

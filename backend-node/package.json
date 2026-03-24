@@ -7,8 +7,7 @@
     "scripts": {
         "start": "node dist/app.js",
         "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
-        "build": "echo 'Pre-built dist folder used'",
-        "build:ts": "tsc",
+        "build": "tsc",
         "prisma:generate": "prisma generate",
         "prisma:push": "prisma db push"
     },

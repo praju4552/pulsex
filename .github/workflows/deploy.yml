@@ -16,7 +16,7 @@ jobs:
     - name: ⚙️ Setup Node for Backend
       uses: actions/setup-node@v4
       with:
-        node-version: 22
+        node-version: 18
 
     - name: 🔨 Build Backend
       run: |
@@ -39,7 +39,7 @@ jobs:
     - name: ⚙️ Setup Node for Frontend
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 18
 
     - name: 🔨 Build Frontend
       env:

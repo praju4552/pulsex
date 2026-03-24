@@ -48,59 +48,7 @@ function getLayerType(filename: string): string {
   return LAYER_TYPE_MAP[ext] || 'copper';
 }
 
-function parseOutlineDimensions(gerberText: string) {
-  let units = 'mm';
-  let xDecimal = 6;  // Bug 3 fix: modern Gerber default is 6, not 4
-  let yDecimal = 6;
-
-  // Bug 1 fix: correct regex for %MOMM*% and %MOIN*% format
-  if (/%(MOMM)\*%/.test(gerberText)) units = 'mm';
-  if (/%(MOIN)\*%/.test(gerberText)) units = 'in';
-
-  const fsMatch = gerberText.match(/%FSLAX(\d)(\d)Y(\d)(\d)/);
-  if (fsMatch) {
-    xDecimal = parseInt(fsMatch[2], 10);
-    yDecimal = parseInt(fsMatch[4], 10);
-  }
-
-  const xCoords: number[] = [];
-  const yCoords: number[] = [];
-  const lines = gerberText.split(/[*\n]/);
-
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    // Bug 2 fix: only collect coordinates from actual draw/move commands (D01, D02, D03)
-    const isDrawCommand = /D0?[123]\*?$/.test(trimmed);
-    if (!isDrawCommand) return;
-
-    const xMatch = trimmed.match(/X(-?\d+)/);
-    const yMatch = trimmed.match(/Y(-?\d+)/);
-
-    if (xMatch) {
-      xCoords.push(parseInt(xMatch[1], 10) / Math.pow(10, xDecimal));
-    }
-    if (yMatch) {
-      yCoords.push(parseInt(yMatch[1], 10) / Math.pow(10, yDecimal));
-    }
-  });
-
-  if (xCoords.length === 0 || yCoords.length === 0) return null;
-
-  let width = Math.max(...xCoords) - Math.min(...xCoords);
-  let height = Math.max(...yCoords) - Math.min(...yCoords);
-
-  if (units === 'in') {
-    width = width * 25.4;
-    height = height * 25.4;
-  }
-
-  return {
-    width: parseFloat(width.toFixed(2)),
-    height: parseFloat(height.toFixed(2)),
-    units: 'mm'
-  };
-}
-
+// Removed parseOutlineDimensions: heuristic was causing false-positives containing title blocks
 function isGerberFile(filename: string): boolean {
   const f = filename.toLowerCase();
   const ext = f.split('.').pop() || '';
@@ -232,17 +180,7 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
     boardWidth = parseFloat(w.toFixed(2));
     boardHeight = parseFloat(h.toFixed(2));
 
-    // ── Step 3: Precise Dimensions via Outline File Override (Fix for measurement bugs) 
-    const outlineLayer = layerEntries.find(l => l.type === 'outline');
-    if (outlineLayer) {
-      const outlineText = outlineLayer.content.toString('utf8');
-      const directDims = parseOutlineDimensions(outlineText);
-      if (directDims && directDims.width > 0 && directDims.height > 0) {
-        boardWidth = directDims.width;
-        boardHeight = directDims.height;
-        boardUnits = directDims.units;
-      }
-    }
+    // Removed Step 3: pcb-stackup natively calculates contours from the `outline` type layer
 
   } catch {
     // If stackup fails, fall back to individual layer rendering only
@@ -264,17 +202,7 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
       boardWidth = parseFloat(w.toFixed(2));
       boardHeight = parseFloat(h.toFixed(2));
 
-      // ── Step 3: Precise Dimensions via Outline File Override (Catch Fallback)
-      const outlineLayerFallback = layerEntries.find(l => l.type === 'outline');
-      if (outlineLayerFallback) {
-        const outlineText = outlineLayerFallback.content.toString('utf8');
-        const directDims = parseOutlineDimensions(outlineText);
-        if (directDims && directDims.width > 0 && directDims.height > 0) {
-          boardWidth = directDims.width;
-          boardHeight = directDims.height;
-          boardUnits = directDims.units;
-        }
-      }
+      // Removed Step 3: pcb-stackup fallback natively calculates contours from the `outline` type layer
 
     } catch (e2) {
       throw new Error(`Gerber rendering failed: ${e2 instanceof Error ? e2.message : String(e2)}`);

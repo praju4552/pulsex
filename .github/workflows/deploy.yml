@@ -2,82 +2,94 @@ name: Deploy Antigravity to Hostinger
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: ⬇️ Checkout Code
-      uses: actions/checkout@v4
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v3
 
-    # 🟢 1. SETUP & BUILD BACKEND
-    - name: ⚙️ Setup Node for Backend
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18
+      # 🟢 1. SETUP & BUILD BACKEND
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-    - name: 🔨 Build Backend
-      run: |
-        cd backend-node
-        npm install
-        npm run build
+      - name: 🔨 Install and build backend
+        run: |
+          cd backend-node
+          npm install
+          npm run build
 
-    - name: 🚀 Deploy Root Server Bootloader
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.HOSTINGER_SSH_HOST }}
-        username: ${{ secrets.HOSTINGER_SSH_USER }}
-        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        port: 65002
-        source: "server.js"
-        target: "~/domains/pulsewritexsolutions.com/"
+      - name: 🚀 Deploy Root Server Bootloader
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "server.js"
+          target: "~/domains/pulsewritexsolutions.com/"
 
-    - name: 🚀 Deploy Backend Files to Hostinger
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.HOSTINGER_SSH_HOST }}
-        username: ${{ secrets.HOSTINGER_SSH_USER }}
-        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        port: 65002
-        source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
-        target: "~/domains/pulsewritexsolutions.com/backendnode"
-        strip_components: 1
+      - name: 🚀 Copy dist to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "backend-node/dist/,backend-node/prisma/,backend-node/package.json,backend-node/package-lock.json"
+          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/"
+          strip_components: 1
 
-    - name: 📦 Install Dependencies on Hostinger via SSH
-      uses: appleboy/ssh-action@v0.1.10
-      with:
-        host: ${{ secrets.HOSTINGER_SSH_HOST }}
-        username: ${{ secrets.HOSTINGER_SSH_USER }}
-        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        port: 65002
-        script: |
-          cd ~/domains/pulsewritexsolutions.com/backendnode
-          npm install --production
+      - name: 📦 Copy node_modules to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "backend-node/node_modules/@tracespace/"
+          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/node_modules/"
+          strip_components: 3
 
-    # 🔵 2. SETUP & BUILD FRONTEND
-    - name: ⚙️ Setup Node for Frontend
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18
+      - name: 🔄 Restart app on Hostinger
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          script: |
+            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
+            cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
+            npm install --ignore-scripts --prefer-offline
+            echo "Deployment complete"
 
-    - name: 🔨 Build Frontend
-      env:
-        VITE_API_URL: https://api.pulsewritexsolutions.com
-        VITE_GOOGLE_CLIENT_ID: 835363988192-jr2ftrbtlklhui007gosnstjqca77m71.apps.googleusercontent.com
-        VITE_RAZORPAY_KEY_ID: rzp_live_SUdncOeOPfYDuL
-      run: |
-        npm install
-        npm run build
+      # 🔵 2. SETUP & BUILD FRONTEND
+      - name: ⚙️ Setup Node for Frontend
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-    - name: 🚀 Deploy Frontend to Hostinger
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.HOSTINGER_SSH_HOST }}
-        username: ${{ secrets.HOSTINGER_SSH_USER }}
-        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        port: 65002
-        source: "dist/*,dist/.htaccess"
-        target: "~/domains/pulsewritexsolutions.com/public_html"
-        strip_components: 1
+      - name: 🔨 Build Frontend
+        env:
+          VITE_API_URL: https://api.pulsewritexsolutions.com
+          VITE_GOOGLE_CLIENT_ID: 835363988192-jr2ftrbtlklhui007gosnstjqca77m71.apps.googleusercontent.com
+          VITE_RAZORPAY_KEY_ID: rzp_live_SUdncOeOPfYDuL
+        run: |
+          npm install
+          npm run build
+
+      - name: 🚀 Deploy Frontend to Hostinger
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "dist/*,dist/.htaccess"
+          target: "~/domains/pulsewritexsolutions.com/public_html"
+          strip_components: 1

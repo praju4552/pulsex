@@ -63,14 +63,34 @@ jobs:
           port: 65002
           script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
+            echo "=== Fixing gerberParser.js on ALL paths ==="
+            find ~/domains/pulsewritexsolutions.com -name "gerberParser.js" -path "*/dist/services/*" 2>/dev/null | while read f; do
+              echo "Patching: $f"
+              grep -n "image.size" "$f" || true
+              # Check if this file still has the WRONG destructuring
+              if grep -q "_x, _y, w, h" "$f"; then
+                echo "  -> FOUND OLD CODE, patching..."
+                sed -i 's/var \[_x, _y, w, h\]/var [x1, y1, x2, y2]/' "$f"
+                sed -i 's/const \[_x, _y, w, h\]/const [x1, y1, x2, y2]/' "$f"
+                # Add subtraction lines after destructuring if not present
+                sed -i '/var \[x1, y1, x2, y2\]/a\                        var w = x2 - x1;\n                        var h = y2 - y1;' "$f"
+                echo "  -> PATCHED!"
+              else
+                echo "  -> Already has correct code"
+              fi
+              grep -n "image.size" "$f" || true
+            done
+            echo "=== Installing dependencies ==="
             cd ~/domains/pulsewritexsolutions.com/backendnode
-            npm install --omit=dev
+            npm install --omit=dev 2>/dev/null || true
             ./node_modules/.bin/prisma generate || true
             chmod -R +x ./node_modules/.bin/ || true
             cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-            npm install --omit=dev
+            npm install --omit=dev 2>/dev/null || true
             ./node_modules/.bin/prisma generate || true
             chmod -R +x ./node_modules/.bin/ || true
+            echo "=== Listing all gerberParser.js files ==="
+            find ~/domains/pulsewritexsolutions.com -name "gerberParser.js" -path "*/dist/*" -exec ls -la {} \;
             echo "Restarting Node.js..."
             killall -9 node || true
 

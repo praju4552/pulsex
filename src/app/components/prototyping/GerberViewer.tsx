@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Layers, Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, Maximize2, Upload, Loader2, AlertTriangle, X } from 'lucide-react';
 import { API_BASE_URL } from '../../../api/config';
 
@@ -37,110 +37,42 @@ export default function GerberViewer({ file }: GerberViewerProps) {
   const [topSvg, setTopSvg] = useState('');
   const [bottomSvg, setBottomSvg] = useState('');
   const [layers, setLayers] = useState<LayerInfo[]>([]);
+  const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number; units: string } | null>(null);
+  
   const [activeView, setActiveView] = useState<'top' | 'bottom'>('top');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
   const [isPanelExpanded, setIsPanelExpanded] = useState(false);
-  const [isolatedLayer, setIsolatedLayer] = useState<string | null>(null); // PCBWay-style isolate
+  const [isolatedLayer, setIsolatedLayer] = useState<string | null>(null);
+
   const dragStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgContainerRef = useRef<HTMLDivElement>(null);
   const loadedFile = useRef<File | null>(null);
 
-  // ── Direct DOM manipulation: show/hide SVG layer groups ──────────────────────
-  // pcb-stackup uses id="gerber-preview" for the root SVG,
-  // and id="gerber-preview_<layerId>" for each layer <g> group.
-  // layerId = filename.toLowerCase().replace(/[^a-z0-9]/g, '_')
-  const applyVisibility = useCallback((vis: Record<string, boolean>, allLayers: LayerInfo[]) => {
-    const svgContainer = svgContainerRef.current;
-    if (!svgContainer) return;
-
-    allLayers.forEach(layer => {
-      const isVisible = vis[layer.filename] !== false; // default true
-      // The pcb-stackup generated ID
-      const elementId = `gerber-preview_${layer.id}`;
-      // Try direct ID lookup first
-      let el = svgContainer.querySelector(`#${CSS.escape(elementId)}`);
-      // Fallback: partial ID match
-      if (!el) {
-        el = svgContainer.querySelector(`[id="${elementId}"]`);
-      }
-      if (el) {
-        (el as HTMLElement).style.display = isVisible ? '' : 'none';
-      }
-    });
-  }, []);
-
-  // Re-apply visibility whenever visibility state or SVG content changes
-  useEffect(() => {
-    if (status === 'done' && layers.length > 0) {
-      // Small delay to ensure dangerouslySetInnerHTML has flushed to DOM
-      const timer = setTimeout(() => applyVisibility(visibility, layers), 50);
-      return () => clearTimeout(timer);
-    }
-  }, [visibility, topSvg, bottomSvg, activeView, status, layers, applyVisibility]);
-
   const toggleLayer = (filename: string) => {
-    setVisibility(prev => {
-      const next = { ...prev, [filename]: !prev[filename] };
-      // Apply immediately too (belt + suspenders)
-      applyVisibility(next, layers);
-      return next;
-    });
+    setVisibility(prev => ({ ...prev, [filename]: !prev[filename] }));
   };
 
   const showAll = () => {
-    const next = Object.fromEntries(layers.map(l => [l.filename, true]));
-    setVisibility(next);
-    applyVisibility(next, layers);
+    setVisibility(Object.fromEntries(layers.map(l => [l.filename, true])));
     setIsolatedLayer(null);
   };
 
   const hideAll = () => {
-    const next = Object.fromEntries(layers.map(l => [l.filename, false]));
-    setVisibility(next);
-    applyVisibility(next, layers);
+    setVisibility(Object.fromEntries(layers.map(l => [l.filename, false])));
     setIsolatedLayer(null);
   };
 
-  // PCBWay isolate: click a layer name (not the eye) to show ONLY that layer
   const isolateLayer = (filename: string) => {
     if (isolatedLayer === filename) {
-      // Already isolated → restore all
       setIsolatedLayer(null);
-      const next = Object.fromEntries(layers.map(l => [l.filename, visibility[l.filename] !== false]));
-      applyVisibility(next, layers);
+      setVisibility(Object.fromEntries(layers.map(l => [l.filename, true])));
     } else {
       setIsolatedLayer(filename);
-      // Show only this layer, hide all others
-      const next = Object.fromEntries(layers.map(l => [l.filename, l.filename === filename]));
-      applyVisibility(next, layers);
+      setVisibility(Object.fromEntries(layers.map(l => [l.filename, l.filename === filename])));
     }
-  };
-
-  // PCBWay hover highlight: dim other layers while hovering
-  const onLayerHoverEnter = (filename: string) => {
-    const svgContainer = svgContainerRef.current;
-    if (!svgContainer) return;
-    layers.forEach(layer => {
-      const el = svgContainer.querySelector(`#gerber-preview_${layer.id}`) ||
-                 svgContainer.querySelector(`[id="gerber-preview_${layer.id}"]`);
-      if (el) {
-        (el as HTMLElement).style.opacity = layer.filename === filename ? '1' : '0.15';
-      }
-    });
-  };
-
-  const onLayerHoverLeave = () => {
-    const svgContainer = svgContainerRef.current;
-    if (!svgContainer) return;
-    layers.forEach(layer => {
-      const el = svgContainer.querySelector(`#gerber-preview_${layer.id}`) ||
-                 svgContainer.querySelector(`[id="gerber-preview_${layer.id}"]`);
-      if (el) (el as HTMLElement).style.opacity = '';
-    });
   };
 
   useEffect(() => {
@@ -153,6 +85,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
       setTopSvg('');
       setBottomSvg('');
       setLayers([]);
+      setBoardDimensions(null);
       setPan({ x: 0, y: 0 });
       setZoom(1);
       setVisibility({});
@@ -175,8 +108,10 @@ export default function GerberViewer({ file }: GerberViewerProps) {
         setTopSvg(data.topSvg);
         setBottomSvg(data.bottomSvg);
         setLayers(data.layers || []);
+        if (data.boardWidth && data.boardHeight) {
+          setBoardDimensions({ width: data.boardWidth, height: data.boardHeight, units: data.boardUnits || 'mm' });
+        }
 
-        // All layers visible by default
         const initVis: Record<string, boolean> = {};
         (data.layers || []).forEach((l: LayerInfo) => { initVis[l.filename] = true; });
         setVisibility(initVis);
@@ -190,7 +125,6 @@ export default function GerberViewer({ file }: GerberViewerProps) {
     renderFile();
   }, [file]);
 
-  // ── Wheel zoom ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -222,7 +156,20 @@ export default function GerberViewer({ file }: GerberViewerProps) {
 
   const currentSvg = activeView === 'top' ? topSvg : bottomSvg;
 
-  // ── Group layers for the panel ───────────────────────────────────────────────
+  // ── Inject responsive styles into SVG string ────────────────────────────────
+  const getAugmentedSvg = (svgStr: string) => {
+    if (!svgStr) return '';
+    const styleRules = layers.map(l => {
+      const isVisible = visibility[l.filename] !== false;
+      if (isVisible) return '';
+      const classMap: Record<string, string> = { copper: 'cu', silkscreen: 'ss', soldermask: 'sm', outline: 'out', solderpaste: 'sp' };
+      const classType = classMap[l.type] || 'cu';
+      return `.gerber-preview_${classType} { display: none !important; }`;
+    }).join('\n');
+
+    return svgStr.replace('</svg>', `<style>${styleRules}</style></svg>`);
+  };
+
   const panelGroups = [
     {
       title: activeView === 'top' ? 'Top Side' : 'Bottom Side',
@@ -242,7 +189,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
           <Layers className="w-4 h-4 text-[#00cc55]" />
           <span className="text-sm font-bold tracking-wide">Gerber Viewer</span>
           {status === 'done' && (
-            <span className="text-xs text-text-muted ml-2">({layers.length} layers rendered)</span>
+            <span className="text-xs text-text-muted ml-2">({layers.length} layers)</span>
           )}
         </div>
         <div className="flex items-center gap-4">
@@ -260,7 +207,6 @@ export default function GerberViewer({ file }: GerberViewerProps) {
           onMouseUp={() => setIsDragging(false)}
           onMouseLeave={() => setIsDragging(false)}
         >
-          {/* Idle state */}
           {status === 'idle' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-600">
               <Upload className="w-12 h-12 mb-4 opacity-40 text-[#00cc55]" />
@@ -268,7 +214,6 @@ export default function GerberViewer({ file }: GerberViewerProps) {
             </div>
           )}
 
-          {/* Loading */}
           {status === 'loading' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-600 gap-3">
               <Loader2 className="w-8 h-8 text-[#00cc55] animate-spin" />
@@ -276,7 +221,6 @@ export default function GerberViewer({ file }: GerberViewerProps) {
             </div>
           )}
 
-          {/* Error */}
           {status === 'error' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-red-600 gap-3 px-8 text-center">
               <AlertTriangle className="w-8 h-8" />
@@ -285,99 +229,63 @@ export default function GerberViewer({ file }: GerberViewerProps) {
             </div>
           )}
 
-          {/* SVG Output */}
+          {/* SVG Canvas */}
           {status === 'done' && currentSvg && (
             <div
               className="absolute inset-0 flex items-center justify-center p-8"
               style={{ transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)` }}
             >
               <div
-                ref={svgContainerRef}
                 className="gerber-svg-container"
                 style={{ maxWidth: '90%', maxHeight: '90%', filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.6))' }}
-                dangerouslySetInnerHTML={{ __html: currentSvg }}
+                dangerouslySetInnerHTML={{ __html: getAugmentedSvg(currentSvg) }}
               />
             </div>
           )}
 
-          {/* ── Floating Stackup Panel ── */}
+          {/* Floating Stackup Panel */}
           {status === 'done' && (
             <div className={`absolute top-4 left-4 max-h-[calc(100%-2rem)] bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col shadow-2xl ring-1 ring-white/5 transition-all duration-300 z-30 overflow-hidden ${isPanelExpanded ? 'w-60' : 'w-auto'}`}>
               {!isPanelExpanded ? (
-                // Collapsed pill
                 <button
                   onClick={() => setIsPanelExpanded(true)}
-                  className="flex items-center gap-2 px-3 py-2.5 text-[#00ff6a] hover:bg-white/5 transition-colors"
-                  title="Show layer stackup"
+                  className="flex items-center gap-2 px-3 py-2 text-[#00ff6a] hover:bg-white/5 transition-colors"
                 >
                   <Layers className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Stackup</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider">Stackup</span>
                 </button>
               ) : (
                 <>
-                  {/* Panel Header */}
-                  <div className="px-3 py-2.5 border-b border-white/5 flex items-center justify-between bg-white/[0.02] shrink-0">
+                  <div className="px-3 py-2.5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#00cc55] animate-pulse" />
                       <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00ff6a]">PCB Stackup</span>
-                      {isolatedLayer && (
-                        <span className="ml-1 px-1.5 py-0.5 text-[8px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full">ISOLATED</span>
-                      )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      {/* TOP / BOT toggle */}
-                      <div className="flex bg-zinc-900 rounded-lg p-0.5 border border-white/10">
-                        <button onClick={() => setActiveView('top')} className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-all ${activeView === 'top' ? 'bg-[#00cc55] text-black' : 'text-zinc-400 hover:text-white'}`}>TOP</button>
-                        <button onClick={() => setActiveView('bottom')} className={`px-2 py-0.5 rounded-md text-[9px] font-bold transition-all ${activeView === 'bottom' ? 'bg-[#00cc55] text-black' : 'text-zinc-400 hover:text-white'}`}>BOT</button>
-                      </div>
-                      {/* ALL / NONE */}
-                      <button onClick={showAll} className="px-1.5 py-0.5 text-[9px] font-bold text-[#00cc55]/70 hover:text-[#00cc55] transition-colors">ALL</button>
-                      <span className="text-white/20 text-[9px]">|</span>
-                      <button onClick={hideAll} className="px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 hover:text-white transition-colors">NONE</button>
-                      {/* Close */}
-                      <button onClick={() => setIsPanelExpanded(false)} className="ml-0.5 p-0.5 hover:bg-white/10 rounded text-zinc-500 hover:text-white transition-colors">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
+                    <button onClick={() => setIsPanelExpanded(false)} className="p-0.5 hover:bg-white/10 rounded text-zinc-500 hover:text-white"><X className="w-3 h-3" /></button>
                   </div>
 
-                  {/* Layer List */}
-                  <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto py-1 custom-scrollbar">
+                    <div className="px-3 py-2 border-b border-white/5 flex gap-2">
+                      <button onClick={() => setActiveView('top')} className={`flex-1 py-1 rounded text-[9px] font-bold ${activeView === 'top' ? 'bg-[#00cc55] text-black' : 'bg-zinc-900 text-zinc-400'}`}>TOP</button>
+                      <button onClick={() => setActiveView('bottom')} className={`flex-1 py-1 rounded text-[9px] font-bold ${activeView === 'bottom' ? 'bg-[#00cc55] text-black' : 'bg-zinc-900 text-zinc-400'}`}>BOT</button>
+                    </div>
                     {panelGroups.map((group, gi) => (
-                      <div key={gi} className="mb-1">
-                        <div className="px-3 py-1 text-[8px] font-black text-[#00cc55]/60 uppercase tracking-[0.15em]">{group.title}</div>
+                      <div key={gi} className="mt-2">
+                        <div className="px-3 py-1 text-[8px] font-black text-[#00cc55]/60 uppercase">{group.title}</div>
                         {group.items.map(layer => {
                           const isVisible = visibility[layer.filename] !== false;
                           return (
                             <button
                               key={layer.filename}
                               onClick={() => toggleLayer(layer.filename)}
-                              onMouseEnter={() => onLayerHoverEnter(layer.filename)}
-                              onMouseLeave={onLayerHoverLeave}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.05] transition-all text-left ${!isVisible ? 'opacity-40' : ''} ${isolatedLayer === layer.filename ? 'bg-amber-500/10 ring-1 ring-amber-500/20 rounded-lg' : ''}`}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/[0.05] text-left ${!isVisible ? 'opacity-40' : ''}`}
                             >
-                              {/* Color dot */}
-                              <div
-                                className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10"
-                                style={{ backgroundColor: LAYER_COLORS[layer.type] || '#888' }}
-                              />
-                              {/* Label — click to ISOLATE (PCBWay feature) */}
-                              <div
-                                className="flex-1 min-w-0 cursor-pointer"
-                                onClick={(e) => { e.stopPropagation(); isolateLayer(layer.filename); }}
-                                title={isolatedLayer === layer.filename ? 'Click to restore all layers' : 'Click to isolate this layer'}
-                              >
-                                <div className={`text-[10px] font-bold truncate ${isolatedLayer === layer.filename ? 'text-amber-400' : 'text-white'}`}>
-                                  {LAYER_LABELS[layer.type] || layer.type}
-                                </div>
-                                <div className="text-[8px] text-zinc-500 font-mono truncate">{layer.filename}</div>
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: LAYER_COLORS[layer.type] || '#888' }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-bold text-white truncate">{LAYER_LABELS[layer.type] || layer.type}</div>
                               </div>
-                              {/* Eye icon — click to toggle visibility */}
-                              <div className={`shrink-0 transition-colors ${isVisible ? 'text-[#00cc55]' : 'text-zinc-700'}`}>
-                                {isVisible
-                                  ? <Eye className="w-3.5 h-3.5 drop-shadow-[0_0_6px_rgba(0,204,85,0.5)]" />
-                                  : <EyeOff className="w-3.5 h-3.5" />
-                                }
+                              <div className={isVisible ? 'text-[#00cc55]' : 'text-zinc-700'}>
+                                {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                               </div>
                             </button>
                           );
@@ -386,14 +294,9 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                     ))}
                   </div>
 
-                  {/* Legend footer */}
-                  <div className="px-3 py-2 border-t border-white/5 flex flex-wrap gap-x-3 gap-y-1">
-                    {Object.entries(LAYER_COLORS).slice(0, 3).map(([type, color]) => (
-                      <div key={type} className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                        <span className="text-[8px] text-zinc-500 font-bold uppercase">{type.slice(0, 4)}</span>
-                      </div>
-                    ))}
+                  <div className="px-3 py-2 border-t border-white/5 flex justify-between">
+                    <button onClick={showAll} className="text-[9px] font-bold text-[#00cc55]/80 hover:text-[#00cc55]">ALL</button>
+                    <button onClick={hideAll} className="text-[9px] font-bold text-zinc-500 hover:text-white">NONE</button>
                   </div>
                 </>
               )}
@@ -404,13 +307,10 @@ export default function GerberViewer({ file }: GerberViewerProps) {
           {status === 'done' && (
             <div className="absolute bottom-6 right-6 flex flex-col gap-3 z-30">
               <div className="flex flex-col bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl">
-                <button onClick={() => setZoom(z => Math.min(z + 0.25, 5))} className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-[#00cc55] transition-all"><ZoomIn className="w-5 h-5" /></button>
-                <button onClick={() => setZoom(z => Math.max(z - 0.25, 0.25))} className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-[#00cc55] transition-all"><ZoomOut className="w-5 h-5" /></button>
+                <button onClick={() => setZoom(z => Math.min(z + 0.25, 5))} className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-[#00cc55]"><ZoomIn className="w-5 h-5" /></button>
+                <button onClick={() => setZoom(z => Math.max(z - 0.25, 0.25))} className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-[#00cc55]"><ZoomOut className="w-5 h-5" /></button>
                 <div className="h-px bg-white/5 mx-2 my-1" />
-                <button onClick={resetView} className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-[#00cc55] transition-all"><RotateCcw className="w-5 h-5" /></button>
-              </div>
-              <div className="text-[10px] font-bold text-[#00cc55] bg-black/70 backdrop-blur-xl px-3 py-2 rounded-2xl border border-white/10 text-center tracking-widest">
-                {(zoom * 100).toFixed(0)}%
+                <button onClick={resetView} className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-[#00cc55]"><RotateCcw className="w-5 h-5" /></button>
               </div>
             </div>
           )}
@@ -424,24 +324,24 @@ export default function GerberViewer({ file }: GerberViewerProps) {
             <div className="px-2 py-0.5 rounded bg-[#00cc55]/10 border border-[#00cc55]/20 text-[#00cc55] text-[9px] font-black uppercase tracking-widest">Verified</div>
             <span className="text-[10px] text-zinc-400 font-medium">
               <span className="text-white font-bold">{file?.name}</span>
-              <span className="mx-2 text-white/10">|</span>
-              {layers.length} Layers Detected
+              {boardDimensions && (
+                <>
+                  <span className="mx-2 text-white/10">|</span>
+                  <span className="text-zinc-300">Size: </span>
+                  <span className="text-white font-bold">{boardDimensions.width} x {boardDimensions.height}</span>
+                  <span className="text-zinc-400 text-[8px] ml-0.5">{boardDimensions.units}</span>
+                </>
+              )}
             </span>
           </div>
-          <button className="text-[10px] font-bold text-[#00cc55] hover:text-white transition-colors flex items-center gap-1.5 uppercase tracking-widest">
+          <button className="text-[10px] font-bold text-[#00cc55] hover:text-white uppercase tracking-widest flex items-center gap-1">
             <Maximize2 className="w-3.5 h-3.5" /> Fullscreen
           </button>
         </div>
       )}
 
       <style>{`
-        .gerber-svg-container svg {
-          max-width: 100%;
-          max-height: 520px;
-          width: auto;
-          height: auto;
-          background-color: white;
-        }
+        .gerber-svg-container svg { max-width: 100%; max-height: 520px; width: auto; height: auto; background-color: white; }
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }

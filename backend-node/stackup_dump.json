@@ -1,0 +1,33 @@
+{
+  "svg": "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"0\" fill-rule=\"evenodd\" clip-rule=\"evenodd\" id=\"ugK66dLVYqyf_top\" viewBox=\"0 0 0 0\" width=\"0\" height=\"0\"><defs><style>.ugK66dLVYqyf_fr4 {color: #666666;}\n.ugK66dLVYqyf_cu {color: #cccccc;}\n.ugK66dLVYqyf_cf {color: #cc9933;}\n.ugK66dLVYqyf_sm {color: #004200; opacity: 0.7490196078431373;}\n.ugK66dLVYqyf_ss {color: #ffffff;}\n.ugK66dLVYqyf_sp {color: #999999;}\n.ugK66dLVYqyf_out {color: #000000;}</style><mask id=\"ugK66dLVYqyf_top_mech-mask\"><g fill=\"#000\" stroke=\"#000\"><rect x=\"0\" y=\"0\" width=\"0\" height=\"0\" fill=\"#fff\"/></g></mask></defs><g transform=\"translate(0,0) scale(1,-1)\"><g mask=\"url(#ugK66dLVYqyf_top_mech-mask)\"><rect x=\"0\" y=\"0\" width=\"0\" height=\"0\" fill=\"currentColor\" class=\"ugK66dLVYqyf_fr4\"/></g></g></svg>",
+  "attributes": {
+    "version": "1.1",
+    "xmlns": "http://www.w3.org/2000/svg",
+    "xmlns:xlink": "http://www.w3.org/1999/xlink",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    "stroke-width": 0,
+    "fill-rule": "evenodd",
+    "clip-rule": "evenodd",
+    "id": "ugK66dLVYqyf_top",
+    "viewBox": "0 0 0 0",
+    "width": "0",
+    "height": "0"
+  },
+  "defs": [
+    "<style>.ugK66dLVYqyf_fr4 {color: #666666;}\n.ugK66dLVYqyf_cu {color: #cccccc;}\n.ugK66dLVYqyf_cf {color: #cc9933;}\n.ugK66dLVYqyf_sm {color: #004200; opacity: 0.7490196078431373;}\n.ugK66dLVYqyf_ss {color: #ffffff;}\n.ugK66dLVYqyf_sp {color: #999999;}\n.ugK66dLVYqyf_out {color: #000000;}</style>",
+    "<mask id=\"ugK66dLVYqyf_top_mech-mask\"><g fill=\"#000\" stroke=\"#000\"><rect x=\"0\" y=\"0\" width=\"0\" height=\"0\" fill=\"#fff\"/></g></mask>"
+  ],
+  "layer": [
+    "<g mask=\"url(#ugK66dLVYqyf_top_mech-mask)\"><rect x=\"0\" y=\"0\" width=\"0\" height=\"0\" fill=\"currentColor\" class=\"ugK66dLVYqyf_fr4\"/></g>"
+  ],
+  "viewBox": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "width": 0,
+  "height": 0,
+  "units": ""
+}

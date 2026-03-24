@@ -1,48 +1,31 @@
 import AdmZip from 'adm-zip';
 import { Readable } from 'stream';
 
-// pcb-stackup is a CommonJS module
 const pcbStackup = require('pcb-stackup');
+const gerberToSvg = require('gerber-to-svg');
 
-/**
- * Layer type identifiers used by pcb-stackup
- * Must match: https://github.com/tracespace/tracespace/blob/main/packages/whats-that-gerber/
- */
 const LAYER_TYPE_MAP: Record<string, string> = {
-  // Top copper
   '.gtl': 'copper', '.cmp': 'copper',
-  // Bottom copper
   '.gbl': 'copper', '.sol': 'copper',
-  // Inner copper
   '.g2': 'copper', '.g3': 'copper', '.g4': 'copper',
   '.gl2': 'copper', '.gl3': 'copper', '.gl4': 'copper',
-  // Top soldermask
   '.gts': 'soldermask', '.stc': 'soldermask',
-  // Bottom soldermask
   '.gbs': 'soldermask', '.sts': 'soldermask',
-  // Top silkscreen
   '.gto': 'silkscreen', '.plc': 'silkscreen',
-  // Bottom silkscreen
   '.gbo': 'silkscreen', '.pls': 'silkscreen',
-  // Top solderpaste
   '.gtp': 'solderpaste', '.crc': 'solderpaste',
-  // Bottom solderpaste
   '.gbp': 'solderpaste', '.crs': 'solderpaste',
-  // Board outline
   '.gko': 'outline', '.gm1': 'outline', '.gml': 'outline',
-  // Drill
   '.drl': 'drill', '.xln': 'drill', '.exc': 'drill', '.txt': 'drill',
 };
 
 function getSide(filename: string): 'top' | 'bottom' | 'all' | 'inner' {
   const f = filename.toLowerCase();
-  // KiCad-style
   if (f.includes('f_cu') || f.includes('f.cu') || f.includes('front') || f.includes('-f.') || f.includes('f_mask') || f.includes('f.mask') || f.includes('f_silks') || f.includes('f.silks') || f.includes('f_paste') || f.includes('f.paste')) return 'top';
   if (f.includes('b_cu') || f.includes('b.cu') || f.includes('back') || f.includes('-b.') || f.includes('b_mask') || f.includes('b.mask') || f.includes('b_silks') || f.includes('b.silks') || f.includes('b_paste') || f.includes('b.paste')) return 'bottom';
   if (f.includes('edge') || f.includes('outline') || f.includes('profile') || f.includes('drill') || f.includes('npth') || f.includes('pth')) return 'all';
   if (f.includes('in1') || f.includes('in2') || f.includes('in3') || f.includes('in4') || f.includes('inner')) return 'inner';
 
-  // Extension-based (Eagle/Protel-style)
   const ext = '.' + (f.split('.').pop() || '');
   if (['.gtl', '.gts', '.gto', '.gtp', '.cmp', '.stc', '.plc', '.crc'].includes(ext)) return 'top';
   if (['.gbl', '.gbs', '.gbo', '.gbp', '.sol', '.sts', '.pls', '.crs'].includes(ext)) return 'bottom';
@@ -55,15 +38,12 @@ function getSide(filename: string): 'top' | 'bottom' | 'all' | 'inner' {
 function getLayerType(filename: string): string {
   const f = filename.toLowerCase();
   const ext = '.' + (f.split('.').pop() || '');
-  
-  // KiCad-style name detection
   if (f.includes('cu') || f.includes('copper')) return 'copper';
   if (f.includes('mask') || f.includes('soldermask')) return 'soldermask';
   if (f.includes('silk') || f.includes('silkscreen')) return 'silkscreen';
   if (f.includes('paste') || f.includes('solderpaste')) return 'solderpaste';
   if (f.includes('edge') || f.includes('outline') || f.includes('profile')) return 'outline';
   if (f.includes('drill') || f.includes('npth') || f.includes('pth')) return 'drill';
-  
   return LAYER_TYPE_MAP[ext] || 'copper';
 }
 
@@ -71,16 +51,44 @@ function isGerberFile(filename: string): boolean {
   const f = filename.toLowerCase();
   const ext = f.split('.').pop() || '';
   const gerberExts = ['gtl','gbl','gts','gbs','gto','gbo','gtp','gbp','gko','gm1','gml','gbr','drl','xln','exc','g2','g3','g4','gl2','gl3','gl4','cmp','sol','stc','sts','plc','pls','crc','crs','art','pho','ger'];
-  
   if (gerberExts.includes(ext)) return true;
-  // KiCad naming
   if (f.includes('f_cu') || f.includes('b_cu') || f.includes('f.cu') || f.includes('b.cu')) return true;
   if (f.includes('f_mask') || f.includes('b_mask') || f.includes('f.mask') || f.includes('b.mask')) return true;
   if (f.includes('f_silks') || f.includes('b_silks') || f.includes('edge_cuts') || f.includes('edge.cuts')) return true;
   if (f.includes('drill') || f.includes('.drl')) return true;
-  
   return false;
 }
+
+// Convert gerber-to-svg output to a proper SVG string
+function renderIndividualLayer(content: Buffer, layerColor: string): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const stream = new Readable();
+      stream.push(content);
+      stream.push(null);
+
+      let svgString = '';
+      const converter = gerberToSvg(stream, { color: layerColor });
+
+      converter.on('data', (chunk: any) => {
+        svgString += chunk.toString();
+      });
+      converter.on('end', () => resolve(svgString));
+      converter.on('error', () => resolve(''));
+    } catch {
+      resolve('');
+    }
+  });
+}
+
+const LAYER_SVG_COLORS: Record<string, string> = {
+  copper: '#c8a020',
+  soldermask: '#006000',
+  silkscreen: '#e0e0e0',
+  solderpaste: '#888888',
+  outline: '#FF6600',
+  drill: '#cccccc',
+};
 
 export interface RenderedGerber {
   topSvg: string;
@@ -90,78 +98,122 @@ export interface RenderedGerber {
     id: string;
     type: string;
     side: string;
+    svg: string;        // ← individual layer SVG (new)
   }>;
+  boardWidth: number;   // ← accurate board dimensions (new)
+  boardHeight: number;
+  boardUnits: string;
 }
 
 export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber> {
   const zip = new AdmZip(zipBuffer);
   const entries = zip.getEntries();
-  
-  const layers: Array<{ id: string; filename: string; gerber: Readable; type: string; side: string }> = [];
-  const layerInfo: Array<{ id: string; filename: string; type: string; side: string }> = [];
+
+  const layerEntries: Array<{ name: string; content: Buffer; type: string; side: string; id: string }> = [];
 
   for (const entry of entries) {
     if (entry.isDirectory) continue;
     const name = entry.entryName.split('/').pop() || entry.entryName;
-    
     if (!isGerberFile(name)) continue;
-    
     const content = entry.getData();
     const type = getLayerType(name);
     const side = getSide(name);
-    const layerId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    
-    // Create a readable stream from the buffer
-    const stream = new Readable();
-    stream.push(content);
-    stream.push(null);
-    
-    layers.push({ id: layerId, filename: name, gerber: stream, type, side });
-    layerInfo.push({ id: layerId, filename: name, type, side });
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    layerEntries.push({ name, content, type, side, id });
   }
 
-  if (layers.length === 0) {
+  if (layerEntries.length === 0) {
     throw new Error('No valid Gerber files found in the ZIP archive.');
   }
 
+  // ── Step 1: Render each layer individually (for frontend toggle) ──────────────
+  const individualSvgs = await Promise.all(
+    layerEntries.map(async (layer) => {
+      const color = LAYER_SVG_COLORS[layer.type] || '#888888';
+      const svg = await renderIndividualLayer(layer.content, color);
+      return { ...layer, svg };
+    })
+  );
+
+  // ── Step 2: Get composite board view + accurate dimensions via pcb-stackup ────
+  let topSvg = '';
+  let bottomSvg = '';
+  let boardWidth = 0;
+  let boardHeight = 0;
+  let boardUnits = 'mm';
+
+  const stackupLayers = layerEntries.map(l => {
+    const stream = new Readable();
+    stream.push(l.content);
+    stream.push(null);
+    return { id: l.id, filename: l.name, gerber: stream, type: l.type, side: l.side };
+  });
+
   try {
-    const stackup = await pcbStackup(layers, {
-      // id used for SVG element IDs
+    const stackup = await pcbStackup(stackupLayers, {
       id: 'gerber-preview',
-      // Use outline for masking
       maskWithOutline: true,
-      // Fill small outline gaps
       outlineGapFill: 0.011,
     });
 
-    return {
-      topSvg: stackup.top.svg,
-      bottomSvg: stackup.bottom.svg,
-      layers: layerInfo,
-    };
-  } catch (err) {
-    // Retry without maskWithOutline if it fails
-    try {
-      const stackup = await pcbStackup(layers.map(l => {
-        // Recreate streams since they were consumed
-        const entry = zip.getEntries().find(e => (e.entryName.split('/').pop() || e.entryName) === l.filename);
-        if (!entry) return l;
-        const stream = new Readable();
-        stream.push(entry.getData());
-        stream.push(null);
-        return { ...l, gerber: stream };
-      }), {
-        id: 'gerber-preview',
-        maskWithOutline: false,
-      });
+    topSvg = stackup.top.svg;
+    bottomSvg = stackup.bottom.svg;
 
-      return {
-        topSvg: stackup.top.svg,
-        bottomSvg: stackup.bottom.svg,
-        layers: layerInfo,
-      };
-    } catch (retryErr) {
-      throw new Error(`Gerber rendering failed: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
+    // Extract accurate board dimensions
+    const units = stackup.top.units || 'mm';
+    let w = stackup.top.width || 0;
+    let h = stackup.top.height || 0;
+
+    // Convert inches to mm if needed
+    if (units === 'in') {
+      w = parseFloat((w * 25.4).toFixed(2));
+      h = parseFloat((h * 25.4).toFixed(2));
+      boardUnits = 'mm';
+    } else {
+      boardWidth = parseFloat(w.toFixed(2));
+      boardHeight = parseFloat(h.toFixed(2));
+      boardUnits = 'mm';
+    }
+
+    boardWidth = parseFloat(w.toFixed(2));
+    boardHeight = parseFloat(h.toFixed(2));
+
+  } catch {
+    // If stackup fails, fall back to individual layer rendering only
+    // Try without maskWithOutline
+    try {
+      const sl2 = layerEntries.map(l => {
+        const stream = new Readable();
+        stream.push(l.content);
+        stream.push(null);
+        return { id: l.id, filename: l.name, gerber: stream, type: l.type, side: l.side };
+      });
+      const stackup = await pcbStackup(sl2, { id: 'gerber-preview', maskWithOutline: false });
+      topSvg = stackup.top.svg;
+      bottomSvg = stackup.bottom.svg;
+      const units = stackup.top.units || 'mm';
+      let w = stackup.top.width || 0;
+      let h = stackup.top.height || 0;
+      if (units === 'in') { w = w * 25.4; h = h * 25.4; }
+      boardWidth = parseFloat(w.toFixed(2));
+      boardHeight = parseFloat(h.toFixed(2));
+    } catch (e2) {
+      throw new Error(`Gerber rendering failed: ${e2 instanceof Error ? e2.message : String(e2)}`);
     }
   }
+
+  return {
+    topSvg,
+    bottomSvg,
+    layers: individualSvgs.map(l => ({
+      filename: l.name,
+      id: l.id,
+      type: l.type,
+      side: l.side,
+      svg: l.svg,
+    })),
+    boardWidth,
+    boardHeight,
+    boardUnits,
+  };
 }

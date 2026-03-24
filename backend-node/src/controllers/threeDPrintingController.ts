@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import pkg from '@prisma/client';
-const { PrismaClient } = pkg;
+import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
 import { ThreeDService } from '../services/threeDService';

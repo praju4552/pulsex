@@ -74,6 +74,30 @@ jobs:
             echo "Restarting Node.js..."
             killall -9 node || true
 
+      - name: Verify deployed code on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          script: |
+            echo "=== CHECKING ALL PATHS ==="
+            echo "--- backendnode/dist/services/gerberParser.js (line with image.size) ---"
+            grep -n "image.size" ~/domains/pulsewritexsolutions.com/backendnode/dist/services/gerberParser.js 2>/dev/null || echo "FILE NOT FOUND at backendnode path"
+            echo "--- nodejs/backend-node/dist/services/gerberParser.js ---"
+            grep -n "image.size" ~/domains/pulsewritexsolutions.com/nodejs/backend-node/dist/services/gerberParser.js 2>/dev/null || echo "FILE NOT FOUND at nodejs path"
+            echo "--- backend-node/dist/services/gerberParser.js ---"
+            grep -n "image.size" ~/domains/pulsewritexsolutions.com/backend-node/dist/services/gerberParser.js 2>/dev/null || echo "FILE NOT FOUND at backend-node path"
+            echo "=== CHECKING server.js ==="
+            cat ~/domains/pulsewritexsolutions.com/server.js 2>/dev/null || echo "server.js NOT FOUND"
+            echo "=== CHECKING server-crash.log ==="
+            cat ~/domains/pulsewritexsolutions.com/server-crash.log 2>/dev/null || echo "No crash log"
+            echo "=== DIRECTORY LISTING ==="
+            ls -la ~/domains/pulsewritexsolutions.com/ | head -20
+            ls -la ~/domains/pulsewritexsolutions.com/backendnode/dist/services/ 2>/dev/null || echo "backendnode/dist/services/ not found"
+            ls -la ~/domains/pulsewritexsolutions.com/nodejs/backend-node/dist/services/ 2>/dev/null || echo "nodejs/backend-node/dist/services/ not found"
+
       - name: Build Frontend
         env:
           VITE_API_URL: https://api.pulsewritexsolutions.com

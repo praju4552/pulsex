@@ -25,9 +25,10 @@ jobs:
       - name: Copy dist to server
         uses: appleboy/scp-action@master
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
           source: "backend-node/dist/"
           target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/"
           strip_components: 1
@@ -35,9 +36,10 @@ jobs:
       - name: Copy package.json to server
         uses: appleboy/scp-action@master
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
           source: "backend-node/package.json,backend-node/package-lock.json,backend-node/prisma/"
           target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/"
           strip_components: 1
@@ -45,9 +47,10 @@ jobs:
       - name: Install and setup on server
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
           script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node

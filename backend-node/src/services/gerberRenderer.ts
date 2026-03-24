@@ -49,11 +49,12 @@ function getLayerType(filename: string): string {
 
 function parseOutlineDimensions(gerberText: string) {
   let units = 'mm';
-  let xDecimal = 4;
-  let yDecimal = 4;
+  let xDecimal = 6;  // Bug 3 fix: modern Gerber default is 6, not 4
+  let yDecimal = 6;
 
-  if (gerberText.includes('%MOMM%') || gerberText.includes('%MOMM*')) units = 'mm';
-  if (gerberText.includes('%MOIN%') || gerberText.includes('%MOIN*')) units = 'in';
+  // Bug 1 fix: correct regex for %MOMM*% and %MOIN*% format
+  if (/%(MOMM)\*%/.test(gerberText)) units = 'mm';
+  if (/%(MOIN)\*%/.test(gerberText)) units = 'in';
 
   const fsMatch = gerberText.match(/%FSLAX(\d)(\d)Y(\d)(\d)/);
   if (fsMatch) {
@@ -63,12 +64,17 @@ function parseOutlineDimensions(gerberText: string) {
 
   const xCoords: number[] = [];
   const yCoords: number[] = [];
-
   const lines = gerberText.split(/[*\n]/);
+
   lines.forEach(line => {
-    const xMatch = line.match(/X(-?\d+)/);
-    const yMatch = line.match(/Y(-?\d+)/);
-    
+    const trimmed = line.trim();
+    // Bug 2 fix: only collect coordinates from actual draw/move commands (D01, D02, D03)
+    const isDrawCommand = /D0?[123]\*?$/.test(trimmed);
+    if (!isDrawCommand) return;
+
+    const xMatch = trimmed.match(/X(-?\d+)/);
+    const yMatch = trimmed.match(/Y(-?\d+)/);
+
     if (xMatch) {
       xCoords.push(parseInt(xMatch[1], 10) / Math.pow(10, xDecimal));
     }
@@ -87,7 +93,11 @@ function parseOutlineDimensions(gerberText: string) {
     height = height * 25.4;
   }
 
-  return { width: parseFloat(width.toFixed(2)), height: parseFloat(height.toFixed(2)), units: 'mm' };
+  return {
+    width: parseFloat(width.toFixed(2)),
+    height: parseFloat(height.toFixed(2)),
+    units: 'mm'
+  };
 }
 
 function isGerberFile(filename: string): boolean {

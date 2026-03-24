@@ -10,6 +10,7 @@ router.post('/', prototypingOrderController_1.createPrototypingOrder);
 router.get('/track/:orderRef', prototypingOrderController_1.trackPrototypingOrder);
 // ── AUTHENTICATED USER routes ──────────────────────────────────────────────────
 // User must be logged in to view their orders or download their documents
+router.get('/my-orders', auth_1.authenticateToken, prototypingOrderController_1.getMyOrders);
 router.get('/user/:userId', auth_1.authenticateToken, prototypingOrderController_1.listUserPrototypingOrders);
 router.get('/:id/download', auth_1.authenticateToken, prototypingOrderController_1.downloadPrototypingDocument);
 // ── ADMIN-ONLY routes ──────────────────────────────────────────────────────────

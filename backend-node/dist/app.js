@@ -37,6 +37,20 @@ const authLimiter = (0, express_rate_limit_1.default)({
     max: 10, // 10 requests max per window
     message: { error: 'Too many attempts, try again in 15 minutes.' }
 });
+// System Health & Diagnostics Endpoint (Audit 6)
+app.get('/health', (req, res) => {
+    let tracespaceLoaded = false;
+    try {
+        require('@tracespace/parser');
+        tracespaceLoaded = true;
+    }
+    catch (e) { }
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        tracespace: tracespaceLoaded
+    });
+});
 // Apply rate limiters
 app.use('/api', generalLimiter);
 app.use('/api/auth', authLimiter);

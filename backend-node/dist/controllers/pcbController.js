@@ -25,7 +25,7 @@ function parsePCBGerber(req, res) {
             if (!allowedExts.includes(ext)) {
                 return res.status(400).json({ error: 'Only .zip, .rar, or .gbz files are accepted.' });
             }
-            const parsed = (0, gerberParser_1.parseGerberZip)(req.file.buffer);
+            const parsed = yield (0, gerberParser_1.parseGerberZip)(req.file.buffer);
             return res.json({
                 success: true,
                 filename: req.file.originalname,

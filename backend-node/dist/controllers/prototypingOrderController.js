@@ -17,6 +17,7 @@ exports.listPrototypingOrders = listPrototypingOrders;
 exports.getPrototypingOrder = getPrototypingOrder;
 exports.updatePrototypingOrder = updatePrototypingOrder;
 exports.listUserPrototypingOrders = listUserPrototypingOrders;
+exports.getMyOrders = getMyOrders;
 exports.trackPrototypingOrder = trackPrototypingOrder;
 exports.downloadPrototypingDocument = downloadPrototypingDocument;
 const db_1 = __importDefault(require("../db"));
@@ -202,6 +203,59 @@ function listUserPrototypingOrders(req, res) {
         catch (err) {
             console.error('[listUserPrototypingOrders]', err);
             return res.status(500).json({ error: 'Failed to fetch your orders.' });
+        }
+    });
+}
+// GET /api/prototyping-orders/my-orders — secure endpoint pulling ID strictly from JWT
+function getMyOrders(req, res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const user = req.user;
+            if (!user || !user.id) {
+                return res.status(401).json({ error: 'Unauthorized: Missing user payload in token' });
+            }
+            const [protoOrders, threeDOrders, laserOrders] = yield Promise.all([
+                db_1.default.prototypingOrder.findMany({
+                    where: { userId: user.id },
+                    orderBy: { createdAt: 'desc' },
+                }),
+                db_1.default.threeDOrder.findMany({
+                    where: { userId: user.id },
+                    include: { file: { include: { config: true } } },
+                    orderBy: { createdAt: 'desc' },
+                }),
+                db_1.default.laserCuttingOrder.findMany({
+                    where: { userId: user.id },
+                    include: { file: { include: { config: true } } },
+                    orderBy: { createdAt: 'desc' },
+                })
+            ]);
+            const formattedProto = protoOrders.map(o => (Object.assign(Object.assign({}, o), { serviceType: o.serviceType === 'PCB' ? 'PCB Printing' : 'Custom Prototyping' })));
+            const formatted3D = threeDOrders.map(o => {
+                var _a, _b, _c, _d;
+                return ({
+                    id: o.id, orderRef: `3D-${o.id.substring(0, 6).toUpperCase()}`,
+                    createdAt: o.createdAt, specSummary: `3D Print: ${(_b = (_a = o.file) === null || _a === void 0 ? void 0 : _a.config) === null || _b === void 0 ? void 0 : _b.material} (${(_d = (_c = o.file) === null || _c === void 0 ? void 0 : _c.config) === null || _d === void 0 ? void 0 : _d.finish})`,
+                    totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+                    serviceType: '3D Printing',
+                    specifications: { fileId: o.fileId }
+                });
+            });
+            const formattedLaser = laserOrders.map(o => {
+                var _a, _b, _c, _d;
+                return ({
+                    id: o.id, orderRef: `LC-${o.id.substring(0, 6).toUpperCase()}`,
+                    createdAt: o.createdAt, specSummary: `Laser: ${(_b = (_a = o.file) === null || _a === void 0 ? void 0 : _a.config) === null || _b === void 0 ? void 0 : _b.material} (${(_d = (_c = o.file) === null || _c === void 0 ? void 0 : _c.config) === null || _d === void 0 ? void 0 : _d.serviceType})`,
+                    totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+                    serviceType: 'Laser Cutting'
+                });
+            });
+            const allOrders = [...formattedProto, ...formatted3D, ...formattedLaser].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return res.json(allOrders);
+        }
+        catch (err) {
+            console.error('[getMyOrders]', err);
+            return res.status(500).json({ error: 'Failed to fetch personal orders.' });
         }
     });
 }

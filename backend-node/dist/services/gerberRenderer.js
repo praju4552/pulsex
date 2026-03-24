@@ -15,8 +15,92 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderGerberZip = renderGerberZip;
 const adm_zip_1 = __importDefault(require("adm-zip"));
 const stream_1 = require("stream");
+// Note: @tracespace loaded dynamically to prevent boot crash if missing
 const pcbStackup = require('pcb-stackup');
 const gerberToSvg = require('gerber-to-svg');
+function extractBoardDimensions(files) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            // Dynamic require so the app boots even if @tracespace is missing on the server
+            let createParser, plot, identify;
+            try {
+                ({ createParser } = require('@tracespace/parser'));
+                ({ plot } = require('@tracespace/plotter'));
+                ({ identifyLayers: identify } = require('@tracespace/identify-layers'));
+            }
+            catch (moduleErr) {
+                console.error('[gerberRenderer] @tracespace not available:', moduleErr.message);
+                return null;
+            }
+            // Step A: Identify which file is the board outline
+            const identified = identify(files.map((f) => f.filename));
+            const outlineFile = files.find(f => {
+                var _a;
+                const layerType = (_a = identified[f.filename]) === null || _a === void 0 ? void 0 : _a.type;
+                return layerType === 'outline' ||
+                    f.filename.match(/\.(GKO|GM1|GBR)$/i) ||
+                    f.filename.toLowerCase().includes('edge') ||
+                    f.filename.toLowerCase().includes('outline') ||
+                    f.filename.toLowerCase().includes('profile');
+            });
+            if (!outlineFile) {
+                console.error('NO OUTLINE FILE FOUND. Available files:', files.map(f => f.filename));
+                return null;
+            }
+            console.log('USING OUTLINE FILE:', outlineFile.filename);
+            // Step B: Parse the Gerber file
+            const parser = createParser();
+            const gerberText = outlineFile.content.toString('utf8');
+            let tree;
+            try {
+                parser.feed(gerberText);
+                tree = parser.results(); // v5 returns a single Root AST node, not an array
+            }
+            catch (e) {
+                console.error('PARSER ERROR:', e);
+                return null;
+            }
+            if (!tree) {
+                console.error('PARSE RESULT IS NULL');
+                return null;
+            }
+            // Step C: Plot to get bounding box
+            const image = plot(tree);
+            if (!image || !image.size || image.size.length === 0) {
+                console.error('IMAGE OR SIZE ENVELOPE IS NULL');
+                return null;
+            }
+            console.log('RAW SIZE ENVELOPE:', image.size);
+            console.log('IMAGE UNITS:', image.units);
+            // ImageTree in v5 stores size as [x1, y1, x2, y2]
+            const [x1, y1, x2, y2] = image.size;
+            const width = x2 - x1;
+            const height = y2 - y1;
+            // Step D: Convert to mm if needed
+            const factor = image.units === 'in' ? 25.4 : 1;
+            const finalWidth = parseFloat((width * factor).toFixed(2));
+            const finalHeight = parseFloat((height * factor).toFixed(2));
+            console.log('FINAL WIDTH MM:', finalWidth);
+            console.log('FINAL HEIGHT MM:', finalHeight);
+            if (finalWidth <= 0 || finalHeight <= 0) {
+                console.error('INVALID DIMENSIONS: zero or negative');
+                return null;
+            }
+            if (finalWidth > 1000 || finalHeight > 1000) {
+                console.warn('WARNING: Dimensions exceed 1000mm, may be incorrect');
+            }
+            return {
+                width: finalWidth,
+                height: finalHeight,
+                units: 'mm'
+            };
+        }
+        catch (err) {
+            console.error('extractBoardDimensions ERROR:', err);
+            return null;
+        }
+    });
+}
 const LAYER_TYPE_MAP = {
     '.gtl': 'copper', '.cmp': 'copper',
     '.gbl': 'copper', '.sol': 'copper',
@@ -70,52 +154,7 @@ function getLayerType(filename) {
         return 'solderpaste';
     return LAYER_TYPE_MAP[ext] || 'copper';
 }
-function parseOutlineDimensions(gerberText) {
-    let units = 'mm';
-    let xDecimal = 6; // Bug 3 fix: modern Gerber default is 6, not 4
-    let yDecimal = 6;
-    // Bug 1 fix: correct regex for %MOMM*% and %MOIN*% format
-    if (/%(MOMM)\*%/.test(gerberText))
-        units = 'mm';
-    if (/%(MOIN)\*%/.test(gerberText))
-        units = 'in';
-    const fsMatch = gerberText.match(/%FSLAX(\d)(\d)Y(\d)(\d)/);
-    if (fsMatch) {
-        xDecimal = parseInt(fsMatch[2], 10);
-        yDecimal = parseInt(fsMatch[4], 10);
-    }
-    const xCoords = [];
-    const yCoords = [];
-    const lines = gerberText.split(/[*\n]/);
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        // Bug 2 fix: only collect coordinates from actual draw/move commands (D01, D02, D03)
-        const isDrawCommand = /D0?[123]\*?$/.test(trimmed);
-        if (!isDrawCommand)
-            return;
-        const xMatch = trimmed.match(/X(-?\d+)/);
-        const yMatch = trimmed.match(/Y(-?\d+)/);
-        if (xMatch) {
-            xCoords.push(parseInt(xMatch[1], 10) / Math.pow(10, xDecimal));
-        }
-        if (yMatch) {
-            yCoords.push(parseInt(yMatch[1], 10) / Math.pow(10, yDecimal));
-        }
-    });
-    if (xCoords.length === 0 || yCoords.length === 0)
-        return null;
-    let width = Math.max(...xCoords) - Math.min(...xCoords);
-    let height = Math.max(...yCoords) - Math.min(...yCoords);
-    if (units === 'in') {
-        width = width * 25.4;
-        height = height * 25.4;
-    }
-    return {
-        width: parseFloat(width.toFixed(2)),
-        height: parseFloat(height.toFixed(2)),
-        units: 'mm'
-    };
-}
+// Removed parseOutlineDimensions: heuristic was causing false-positives containing title blocks
 function isGerberFile(filename) {
     const f = filename.toLowerCase();
     const ext = f.split('.').pop() || '';
@@ -223,16 +262,15 @@ function renderGerberZip(zipBuffer) {
             }
             boardWidth = parseFloat(w.toFixed(2));
             boardHeight = parseFloat(h.toFixed(2));
-            // ── Step 3: Precise Dimensions via Outline File Override (Fix for measurement bugs) 
-            const outlineLayer = layerEntries.find(l => l.type === 'outline');
-            if (outlineLayer) {
-                const outlineText = outlineLayer.content.toString('utf8');
-                const directDims = parseOutlineDimensions(outlineText);
-                if (directDims && directDims.width > 0 && directDims.height > 0) {
-                    boardWidth = directDims.width;
-                    boardHeight = directDims.height;
-                    boardUnits = directDims.units;
-                }
+            // ── Step 3: Precise Dimensions via Tracespace Override ──
+            const traceDims = yield extractBoardDimensions(layerEntries.map(l => ({
+                filename: l.name || l.type,
+                content: Buffer.isBuffer(l.content) ? l.content : Buffer.from(l.content)
+            })));
+            if (traceDims) {
+                boardWidth = traceDims.width;
+                boardHeight = traceDims.height;
+                boardUnits = traceDims.units;
             }
         }
         catch (_a) {
@@ -257,16 +295,15 @@ function renderGerberZip(zipBuffer) {
                 }
                 boardWidth = parseFloat(w.toFixed(2));
                 boardHeight = parseFloat(h.toFixed(2));
-                // ── Step 3: Precise Dimensions via Outline File Override (Catch Fallback)
-                const outlineLayerFallback = layerEntries.find(l => l.type === 'outline');
-                if (outlineLayerFallback) {
-                    const outlineText = outlineLayerFallback.content.toString('utf8');
-                    const directDims = parseOutlineDimensions(outlineText);
-                    if (directDims && directDims.width > 0 && directDims.height > 0) {
-                        boardWidth = directDims.width;
-                        boardHeight = directDims.height;
-                        boardUnits = directDims.units;
-                    }
+                // ── Step 3: Precise Dimensions via Tracespace Override (Fallback) ──
+                const traceDimsFallback = yield extractBoardDimensions(layerEntries.map(l => ({
+                    filename: l.name || l.type,
+                    content: Buffer.isBuffer(l.content) ? l.content : Buffer.from(l.content)
+                })));
+                if (traceDimsFallback) {
+                    boardWidth = traceDimsFallback.width;
+                    boardHeight = traceDimsFallback.height;
+                    boardUnits = traceDimsFallback.units;
                 }
             }
             catch (e2) {

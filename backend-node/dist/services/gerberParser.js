@@ -1,10 +1,54 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseGerberZip = parseGerberZip;
 const adm_zip_1 = __importDefault(require("adm-zip"));
+const path = __importStar(require("path"));
+// Note: @tracespace loaded dynamically to prevent boot crash if missing
 // ─── Layer Detection ─────────────────────────────────────────────────────────
 // Gerber file layer patterns mapped to layer type
 const LAYER_PATTERNS = {
@@ -61,54 +105,206 @@ function countInnerLayers(filenames) {
     }
     return inner.size;
 }
-function parseGerberBounds(content) {
-    const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
-    let unit = 'mm'; // default
-    let formatX = 2; // integer digits
-    let formatY = 2;
-    let decimalX = 4; // decimal digits
-    let decimalY = 4;
-    let hasCoords = false;
-    const lines = content.split('\n');
-    for (const line of lines) {
-        const trimmed = line.trim();
-        // Detect unit: %MOIN*% or %MOMM*%
-        if (trimmed.includes('%MOIN*%') || trimmed.includes('MOIN')) {
-            unit = 'inch';
+// ─── Universal Manual Coordinate Parser ───────────────────────────────────────
+// Handles ALL Gerber dialects: KiCad, Altium, Eagle, EasyEDA, OrCAD, etc.
+function manualCoordinateParse(gerberData) {
+    try {
+        console.log('[gerberParser] Running universal manual coordinate parser...');
+        // ── Step 1: Detect units ──
+        let isInch = false; // Default to mm (safer assumption)
+        if (gerberData.includes('%MOIN*%'))
+            isInch = true;
+        else if (gerberData.includes('%MOMM*%'))
+            isInch = false;
+        console.log('[gerberParser] Units detected:', isInch ? 'INCH' : 'MM');
+        // ── Step 2: Parse Format Specification ──
+        // Formats: %FSLAX24Y24*%, %FSLAX36Y36*%, %FSTAX25Y25*%, etc.
+        let intX = 2, decX = 4, intY = 2, decY = 4;
+        let hasFS = false;
+        const fsMatch = gerberData.match(/%FS([LTD]?)([AI]?)X(\d)(\d)Y(\d)(\d)\*%/);
+        if (fsMatch) {
+            intX = parseInt(fsMatch[3], 10);
+            decX = parseInt(fsMatch[4], 10);
+            intY = parseInt(fsMatch[5], 10);
+            decY = parseInt(fsMatch[6], 10);
+            hasFS = true;
+            console.log('[gerberParser] FS header found:', fsMatch[0], `X=${intX}.${decX} Y=${intY}.${decY}`);
         }
-        else if (trimmed.includes('%MOMM*%') || trimmed.includes('MOMM')) {
-            unit = 'mm';
+        else {
+            console.warn('[gerberParser] No %FS header found — using defaults X2.4 Y2.4');
         }
-        // Detect format: %FSLAX24Y24*% or similar
-        const fmtMatch = trimmed.match(/%FS[LT]A?X(\d)(\d)Y(\d)(\d)\*?%/i);
-        if (fmtMatch) {
-            formatX = parseInt(fmtMatch[1]);
-            decimalX = parseInt(fmtMatch[2]);
-            formatY = parseInt(fmtMatch[3]);
-            decimalY = parseInt(fmtMatch[4]);
-        }
-        // Match coordinate lines like D01/D02/D03 commands
-        const coordMatch = trimmed.match(/X(-?\d+)Y(-?\d+)/i);
-        if (coordMatch) {
-            const divisorX = Math.pow(10, decimalX);
-            const divisorY = Math.pow(10, decimalY);
-            let x = parseInt(coordMatch[1]) / divisorX;
-            let y = parseInt(coordMatch[2]) / divisorY;
-            // Convert inch → mm
-            if (unit === 'inch') {
-                x *= 25.4;
-                y *= 25.4;
+        const divisorX = Math.pow(10, decX);
+        const divisorY = Math.pow(10, decY);
+        // ── Step 3: Extract ALL coordinates using multiple strategies ──
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        let coordCount = 0;
+        let lastX = 0, lastY = 0;
+        // Split into lines for line-by-line parsing (handles ALL formats)
+        const lines = gerberData.split(/\r?\n/);
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // Skip comments, aperture definitions, and macro commands
+            if (trimmed.startsWith('G04') || trimmed.startsWith('%') || trimmed.startsWith('M'))
+                continue;
+            // Extract X coordinate from this line (if present)
+            const xMatch = trimmed.match(/X([+\-]?\d+)/);
+            // Extract Y coordinate from this line (if present)
+            const yMatch = trimmed.match(/Y([+\-]?\d+)/);
+            if (xMatch)
+                lastX = parseInt(xMatch[1], 10);
+            if (yMatch)
+                lastY = parseInt(yMatch[1], 10);
+            // Only track coordinates that are actual draw/move commands
+            // D01=draw, D02=move, D03=flash, or inherited (no D code = previous mode)
+            const isDraw = /D0?[123]\*/.test(trimmed) ||
+                (trimmed.endsWith('*') && (xMatch || yMatch) && !trimmed.startsWith('%'));
+            if (isDraw && (xMatch || yMatch)) {
+                const x = lastX / divisorX;
+                const y = lastY / divisorY;
+                if (x < minX)
+                    minX = x;
+                if (x > maxX)
+                    maxX = x;
+                if (y < minY)
+                    minY = y;
+                if (y > maxY)
+                    maxY = y;
+                coordCount++;
             }
-            bounds.minX = Math.min(bounds.minX, x);
-            bounds.maxX = Math.max(bounds.maxX, x);
-            bounds.minY = Math.min(bounds.minY, y);
-            bounds.maxY = Math.max(bounds.maxY, y);
-            hasCoords = true;
         }
+        console.log('[gerberParser] Total coordinates extracted:', coordCount);
+        if (coordCount < 2) {
+            console.warn('[gerberParser] Not enough coordinates found for bounding box');
+            return null;
+        }
+        let w = maxX - minX;
+        let h = maxY - minY;
+        // Convert to mm if in inches
+        if (isInch) {
+            w *= 25.4;
+            h *= 25.4;
+        }
+        const width = parseFloat(w.toFixed(2));
+        const height = parseFloat(h.toFixed(2));
+        console.log('[gerberParser] Manual parse result:', width, 'x', height, 'mm');
+        if (width <= 0 || height <= 0)
+            return null;
+        return { width, height };
     }
-    if (!hasCoords)
+    catch (e) {
+        console.error('[gerberParser] Manual Coordinate Parse threw exception:', e);
         return null;
-    return bounds;
+    }
+}
+// ─── Tracespace Board Dimension Extraction ───────────────────────────────────
+function extractBoardDimensions(files, warnings) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            console.log('[gerberParser] Starting Tracespace dimension extraction pipeline...');
+            let createParser, plot, identifyLayers;
+            let tracespaceAvailable = false;
+            try {
+                ({ createParser } = require('@tracespace/parser'));
+                ({ plot } = require('@tracespace/plotter'));
+                ({ identifyLayers } = require('@tracespace/identify-layers'));
+                tracespaceAvailable = true;
+            }
+            catch (moduleErr) {
+                warnings.push(`Tracespace not available natively — using manual parser fallback.`);
+            }
+            let outlineFile;
+            if (tracespaceAvailable) {
+                const identified = identifyLayers(files.map((f) => f.filename));
+                outlineFile = files.find(f => {
+                    const info = identified[f.filename];
+                    const layerType = info === null || info === void 0 ? void 0 : info.type;
+                    return layerType === 'outline' ||
+                        f.filename.match(/\.(GKO|GM1|GBR|GML)$/i) ||
+                        f.filename.toLowerCase().includes('edge') ||
+                        f.filename.toLowerCase().includes('outline') ||
+                        f.filename.toLowerCase().includes('profile');
+                });
+            }
+            else {
+                outlineFile = files.find(f => {
+                    const lower = f.filename.toLowerCase();
+                    return lower.endsWith('.gko') || lower.endsWith('.gm1') || lower.endsWith('.gml') ||
+                        lower.endsWith('.bor') || lower.endsWith('.dim') ||
+                        lower.includes('edge') || lower.includes('outline') ||
+                        lower.includes('profile') || lower.includes('border') ||
+                        lower.includes('boardoutline') || lower.includes('board_outline') ||
+                        lower.includes('mechanical') || /\.gm\d+$/i.test(lower);
+                });
+            }
+            if (!outlineFile) {
+                warnings.push(`No outline file candidate matched (Tried .GKO, edge, outline). Scanning all ${files.length} files...`);
+                let bestDims = null;
+                let maxArea = 0;
+                for (const f of files) {
+                    const lower = f.filename.toLowerCase();
+                    if (lower.endsWith('.drl') || lower.endsWith('.exc') || lower.endsWith('.txt'))
+                        continue;
+                    const data = f.content.toString('utf8');
+                    if (!data.includes('%') && !data.includes('D01') && !data.includes('D02'))
+                        continue;
+                    const dims = manualCoordinateParse(data);
+                    if (dims) {
+                        const area = dims.width * dims.height;
+                        // Strategy: Pick the LARGEST valid bounding box under 400,000mm2 to find the board boundary
+                        if (dims.width < 1000 && dims.height < 1000 && (bestDims === null || area > maxArea)) {
+                            bestDims = dims;
+                            maxArea = area;
+                            warnings.push(`Found candidate in ${f.filename}: ${dims.width}x${dims.height}mm (Area: ${area.toFixed(0)})`);
+                        }
+                    }
+                }
+                if (bestDims)
+                    return bestDims;
+                warnings.push(`Greedy coordinate scan found zero valid bounding boxes.`);
+                return null;
+            }
+            warnings.push(`Picked outline candidate file: ${outlineFile.filename}`);
+            const outlineData = outlineFile.content.toString('utf8');
+            let finalW = 0, finalH = 0;
+            if (tracespaceAvailable) {
+                const parser = createParser();
+                parser.feed(outlineData);
+                const tree = parser.results();
+                const image = plot(tree);
+                if (image && image.size && image.size.length === 4) {
+                    const [_x, _y, w, h] = image.size;
+                    const factor = image.units === 'in' ? 25.4 : 1;
+                    finalW = parseFloat((w * factor).toFixed(2));
+                    finalH = parseFloat((h * factor).toFixed(2));
+                    console.log('[gerberParser] Tracespace size array:', image.size);
+                    console.log('[gerberParser] Units:', image.units, 'Factor:', factor);
+                    console.log('[gerberParser] FINAL WIDTH MM:', finalW);
+                    console.log('[gerberParser] FINAL HEIGHT MM:', finalH);
+                }
+            }
+            if (finalW <= 0 || finalH <= 0) {
+                const manualProps = manualCoordinateParse(outlineData);
+                if (manualProps) {
+                    finalW = manualProps.width;
+                    finalH = manualProps.height;
+                    warnings.push(`Manual parser successfully read outline file: ${finalW}x${finalH}mm`);
+                }
+                else {
+                    warnings.push(`Manual parser returned null / 0 coordinates for ${outlineFile.filename}`);
+                }
+            }
+            if (finalW < 1 || finalH < 1 || finalW > 2000 || finalH > 2000) {
+                warnings.push(`Parser returned out-of-bounds dimensions: ${finalW}x${finalH}mm. Discarding.`);
+                return null;
+            }
+            return { width: finalW, height: finalH };
+        }
+        catch (err) {
+            warnings.push(`extractBoardDimensions fatal crash: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+        }
+    });
 }
 // ─── Surface Finish Detection ─────────────────────────────────────────────────
 function detectSurfaceFinish(filenames) {
@@ -122,116 +318,94 @@ function detectSurfaceFinish(filenames) {
     return null;
 }
 function parseGerberZip(zipBuffer) {
-    const warnings = [];
-    let detectedLayers = [];
-    let boardBounds = null;
-    let fileCount = 0;
-    try {
-        const zip = new adm_zip_1.default(zipBuffer);
-        const entries = zip.getEntries();
-        const filenames = entries.map(e => e.entryName);
-        fileCount = entries.length;
-        // Find layer files
-        const layerSet = new Set();
-        let hasTopCopper = false;
-        let hasBottomCopper = false;
-        let outlineEntry = null;
-        for (const entry of entries) {
-            if (entry.isDirectory)
-                continue;
-            const name = entry.entryName;
-            const layerType = detectLayerType(name);
-            if (layerType) {
-                layerSet.add(layerType);
-                if (layerType === 'Top Copper')
-                    hasTopCopper = true;
-                if (layerType === 'Bottom Copper')
-                    hasBottomCopper = true;
-                if (layerType === 'Board Outline')
-                    outlineEntry = entry;
-            }
-        }
-        // Try to parse board outline for dimensions
-        if (outlineEntry) {
-            try {
-                const content = outlineEntry.getData().toString('utf8');
-                boardBounds = parseGerberBounds(content);
-            }
-            catch (_) {
-                warnings.push('Could not parse board outline file.');
-            }
-        }
-        // If no explicit outline, try top copper as fallback
-        if (!boardBounds) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const warnings = [];
+        let detectedLayers = [];
+        let fileCount = 0;
+        try {
+            const zip = new adm_zip_1.default(zipBuffer);
+            const entries = zip.getEntries();
+            const filenames = entries.map(e => e.entryName);
+            fileCount = entries.length;
+            // Find layer files
+            const layerSet = new Set();
+            let hasTopCopper = false;
+            let hasBottomCopper = false;
+            let outlineEntry = null;
             for (const entry of entries) {
                 if (entry.isDirectory)
                     continue;
-                const lt = detectLayerType(entry.entryName);
-                if (lt === 'Top Copper') {
-                    try {
-                        const content = entry.getData().toString('utf8');
-                        boardBounds = parseGerberBounds(content);
-                        if (boardBounds) {
-                            warnings.push('Board outline estimated from Top Copper extents.');
-                            break;
-                        }
-                    }
-                    catch (_) { }
+                const name = entry.entryName;
+                const layerType = detectLayerType(name);
+                if (layerType) {
+                    layerSet.add(layerType);
+                    if (layerType === 'Top Copper')
+                        hasTopCopper = true;
+                    if (layerType === 'Bottom Copper')
+                        hasBottomCopper = true;
+                    if (layerType === 'Board Outline')
+                        outlineEntry = entry;
                 }
             }
-        }
-        // Calculate layer count
-        const innerCount = countInnerLayers(filenames);
-        let layerCount = 1;
-        if (hasTopCopper && hasBottomCopper) {
-            layerCount = 2 + innerCount;
-        }
-        else if (hasTopCopper || hasBottomCopper) {
-            layerCount = 1;
-        }
-        else {
-            warnings.push('Could not auto-detect copper layers — defaulting to 2.');
-            layerCount = 2;
-        }
-        // Snap layer count to supported values
-        const supported = [1, 2, 4, 6, 8, 10, 12, 14, 16];
-        if (!supported.includes(layerCount)) {
-            const closest = supported.reduce((a, b) => Math.abs(b - layerCount) < Math.abs(a - layerCount) ? b : a);
-            warnings.push(`Detected ${layerCount} layers — snapped to nearest supported value ${closest}.`);
-            layerCount = closest;
-        }
-        detectedLayers = Array.from(layerSet);
-        // Confidence level
-        let confidence = 'low';
-        if (boardBounds && hasTopCopper && hasBottomCopper)
-            confidence = 'high';
-        else if (boardBounds || (hasTopCopper && hasBottomCopper))
-            confidence = 'medium';
-        // Dimensions from bounds
-        let dimX = 0;
-        let dimY = 0;
-        if (boardBounds) {
-            dimX = parseFloat((boardBounds.maxX - boardBounds.minX).toFixed(2));
-            dimY = parseFloat((boardBounds.maxY - boardBounds.minY).toFixed(2));
-            // Guard against nonsensical values
-            if (dimX <= 0 || dimX > 1000) {
+            // ── Use Tracespace engine for precise board dimensions ──
+            // Case 4: Flatten nested directory paths by isolating basename
+            const gerberFiles = entries
+                .filter(e => !e.isDirectory)
+                .map(e => ({ filename: path.basename(e.entryName), content: e.getData() }));
+            const traceDims = yield extractBoardDimensions(gerberFiles, warnings);
+            // Calculate layer count
+            const innerCount = countInnerLayers(filenames);
+            let layerCount = 1;
+            if (hasTopCopper && hasBottomCopper) {
+                layerCount = 2 + innerCount;
+            }
+            else if (hasTopCopper || hasBottomCopper) {
+                layerCount = 1;
+            }
+            else {
+                warnings.push('Could not auto-detect copper layers — defaulting to 2.');
+                layerCount = 2;
+            }
+            // Snap layer count to supported values
+            const supported = [1, 2, 4, 6, 8, 10, 12, 14, 16];
+            if (!supported.includes(layerCount)) {
+                const closest = supported.reduce((a, b) => Math.abs(b - layerCount) < Math.abs(a - layerCount) ? b : a);
+                warnings.push(`Detected ${layerCount} layers — snapped to nearest supported value ${closest}.`);
+                layerCount = closest;
+            }
+            detectedLayers = Array.from(layerSet);
+            // Confidence level
+            let confidence = 'low';
+            if (traceDims && hasTopCopper && hasBottomCopper)
+                confidence = 'high';
+            else if (traceDims || (hasTopCopper && hasBottomCopper))
+                confidence = 'medium';
+            // Dimensions from Tracespace engine
+            let dimX = 0;
+            let dimY = 0;
+            if (traceDims) {
+                dimX = traceDims.width;
+                dimY = traceDims.height;
+                // Guard against nonsensical values
+                if (dimX <= 0 || dimX > 1000) {
+                    dimX = 100;
+                    warnings.push('X dimension out of range — defaulted to 100mm.');
+                }
+                if (dimY <= 0 || dimY > 1000) {
+                    dimY = 100;
+                    warnings.push('Y dimension out of range — defaulted to 100mm.');
+                }
+            }
+            else {
+                warnings.push('Board dimensions could not be determined — set to 100×100mm.');
                 dimX = 100;
-                warnings.push('X dimension out of range — defaulted to 100mm.');
-            }
-            if (dimY <= 0 || dimY > 1000) {
                 dimY = 100;
-                warnings.push('Y dimension out of range — defaulted to 100mm.');
             }
+            const surfaceFinish = detectSurfaceFinish(filenames);
+            return { layers: layerCount, dimX, dimY, dimUnit: 'mm', surfaceFinish, detectedLayers, fileCount, confidence, warnings };
         }
-        else {
-            warnings.push('Board dimensions could not be determined — set to 100×100mm.');
-            dimX = 100;
-            dimY = 100;
+        catch (err) {
+            throw new Error(`Failed to parse Gerber ZIP: ${err instanceof Error ? err.message : String(err)}`);
         }
-        const surfaceFinish = detectSurfaceFinish(filenames);
-        return { layers: layerCount, dimX, dimY, dimUnit: 'mm', surfaceFinish, detectedLayers, fileCount, confidence, warnings };
-    }
-    catch (err) {
-        throw new Error(`Failed to parse Gerber ZIP: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    });
 }

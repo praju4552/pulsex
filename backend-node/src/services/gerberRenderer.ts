@@ -62,6 +62,10 @@ function parseOutlineDimensions(gerberText: string) {
     yDecimal = parseInt(fsMatch[4], 10);
   }
 
+  console.log('UNITS DETECTED:', units);
+  console.log('X DECIMAL:', xDecimal);
+  console.log('Y DECIMAL:', yDecimal);
+
   const xCoords: number[] = [];
   const yCoords: number[] = [];
   const lines = gerberText.split(/[*\n]/);
@@ -82,6 +86,13 @@ function parseOutlineDimensions(gerberText: string) {
       yCoords.push(parseInt(yMatch[1], 10) / Math.pow(10, yDecimal));
     }
   });
+
+  console.log('TOTAL X COORDS FOUND:', xCoords.length);
+  console.log('TOTAL Y COORDS FOUND:', yCoords.length);
+  console.log('RAW X SAMPLE (first 5):', xCoords.slice(0, 5));
+  console.log('RAW Y SAMPLE (first 5):', yCoords.slice(0, 5));
+  console.log('X MIN:', Math.min(...xCoords), 'X MAX:', Math.max(...xCoords));
+  console.log('Y MIN:', Math.min(...yCoords), 'Y MAX:', Math.max(...yCoords));
 
   if (xCoords.length === 0 || yCoords.length === 0) return null;
 
@@ -232,10 +243,19 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
     boardHeight = parseFloat(h.toFixed(2));
 
     // ── Step 3: Precise Dimensions via Outline File Override (Fix for measurement bugs) 
+    console.log('ALL LAYER TYPES FOUND:', layerEntries.map(l => l.type));
     const outlineLayer = layerEntries.find(l => l.type === 'outline');
+    console.log('OUTLINE LAYER FOUND:', !!outlineLayer);
+    
     if (outlineLayer) {
       const outlineText = outlineLayer.content.toString('utf8');
+      console.log('=== OUTLINE FILE FIRST 50 LINES ===');
+      console.log(outlineText.split('\n').slice(0, 50).join('\n'));
+      console.log('=== END ===');
+      
       const directDims = parseOutlineDimensions(outlineText);
+      console.log('FINAL DIMS:', directDims);
+      
       if (directDims && directDims.width > 0 && directDims.height > 0) {
         boardWidth = directDims.width;
         boardHeight = directDims.height;
@@ -264,10 +284,19 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
       boardHeight = parseFloat(h.toFixed(2));
 
       // ── Step 3: Precise Dimensions via Outline File Override (Catch Fallback)
+      console.log('ALL LAYER TYPES FOUND (FALLBACK):', layerEntries.map(l => l.type));
       const outlineLayerFallback = layerEntries.find(l => l.type === 'outline');
+      console.log('OUTLINE LAYER FOUND (FALLBACK):', !!outlineLayerFallback);
+      
       if (outlineLayerFallback) {
         const outlineText = outlineLayerFallback.content.toString('utf8');
+        console.log('=== OUTLINE FILE FIRST 50 LINES (FALLBACK) ===');
+        console.log(outlineText.split('\n').slice(0, 50).join('\n'));
+        console.log('=== END ===');
+        
         const directDims = parseOutlineDimensions(outlineText);
+        console.log('FINAL DIMS (FALLBACK):', directDims);
+        
         if (directDims && directDims.width > 0 && directDims.height > 0) {
           boardWidth = directDims.width;
           boardHeight = directDims.height;

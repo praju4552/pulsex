@@ -40,7 +40,7 @@ jobs:
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json,backend-node/node_modules"
           target: "~/domains/pulsewritexsolutions.com/backendnode"
           strip_components: 1
 
@@ -51,20 +51,19 @@ jobs:
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json,backend-node/node_modules"
           target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
           strip_components: 1
 
-      - name: Generate Prisma Client on server
+      - name: Restart Node.js application
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
-            cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-            npx prisma generate
+            echo "Restarting Node.js backend..."
+            killall -9 node || true
 
       # 🔵 2. SETUP & BUILD FRONTEND
       - name: ⚙️ Setup Node for Frontend

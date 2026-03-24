@@ -55,6 +55,11 @@ function getSide(filename) {
 function getLayerType(filename) {
     const f = filename.toLowerCase();
     const ext = '.' + (f.split('.').pop() || '');
+    // IMPORTANT: Check outline/drill BEFORE copper — 'Edge_Cuts' contains 'cu' which falsely matches copper
+    if (f.includes('edge') || f.includes('outline') || f.includes('profile') || f.includes('board') || f.includes('border'))
+        return 'outline';
+    if (f.includes('drill') || f.includes('npth') || f.includes('pth'))
+        return 'drill';
     if (f.includes('cu') || f.includes('copper'))
         return 'copper';
     if (f.includes('mask') || f.includes('soldermask'))
@@ -63,10 +68,6 @@ function getLayerType(filename) {
         return 'silkscreen';
     if (f.includes('paste') || f.includes('solderpaste'))
         return 'solderpaste';
-    if (f.includes('edge') || f.includes('outline') || f.includes('profile'))
-        return 'outline';
-    if (f.includes('drill') || f.includes('npth') || f.includes('pth'))
-        return 'drill';
     return LAYER_TYPE_MAP[ext] || 'copper';
 }
 function parseOutlineDimensions(gerberText) {

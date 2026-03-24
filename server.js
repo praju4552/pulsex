@@ -1,17 +1,33 @@
 /**
  * server.js — Hostinger root entry point
  * Hostinger's Express framework detector requires this file at root.
- * It delegates directly to the pre-compiled backend at backend-node/dist/app.js
+ * It delegates directly to the pre-compiled backend.
+ *
+ * Hostinger runtime path: nodejs/backend-node/dist/app.js
+ * Local dev path:         backend-node/dist/app.js
  */
 const path = require('path');
+const fs = require('fs');
 
-// Resolve to pre-compiled backend entry on Hostinger (backendnode) and locally (backend-node)
-const distEntryHostinger = path.join(__dirname, 'backendnode', 'dist', 'app.js');
-const distEntryLocal = path.join(__dirname, 'backend-node', 'dist', 'app.js');
+// All possible locations where the compiled backend might live
+const candidates = [
+  path.join(__dirname, 'nodejs', 'backend-node', 'dist', 'app.js'),  // Hostinger production
+  path.join(__dirname, 'backendnode', 'dist', 'app.js'),              // Old Hostinger deploy
+  path.join(__dirname, 'backend-node', 'dist', 'app.js'),             // Local development
+];
 
-// Boot the backend
-try {
-  require(distEntryHostinger);
-} catch (err) {
-  require(distEntryLocal);
+let loaded = false;
+for (const entry of candidates) {
+  if (fs.existsSync(entry)) {
+    console.log('[server.js] Booting from:', entry);
+    require(entry);
+    loaded = true;
+    break;
+  }
+}
+
+if (!loaded) {
+  console.error('[server.js] FATAL: Could not find app.js in any known location.');
+  console.error('[server.js] Searched:', candidates);
+  process.exit(1);
 }

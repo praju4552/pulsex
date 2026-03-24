@@ -41,8 +41,8 @@ jobs:
         username: ${{ secrets.HOSTINGER_SSH_USER }}
         password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
         port: 65002
-        source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
-        target: "~/domains/pulsewritexsolutions.com/backendnode"
+        source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json,backend-node/node_modules"
+        target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
         strip_components: 1
 
     # 🔵 2. SETUP & BUILD FRONTEND

@@ -1,7 +1,6 @@
 # 📦 Dependency directories
 node_modules/
-!backend-node/node_modules/
-!backend-node/node_modules/**
+backend-node/node_modules/
 
 # 🛠️ Compiled output folders
 dist-ssr/

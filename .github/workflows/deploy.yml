@@ -45,17 +45,16 @@ jobs:
         target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
         strip_components: 1
 
-    - name: 📦 Install Dependencies on Hostinger via SSH
-      uses: appleboy/ssh-action@v0.1.10
+    - name: 📦 Deploy Tracespace Libraries (pure JS, safe to SCP)
+      uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.HOSTINGER_SSH_HOST }}
         username: ${{ secrets.HOSTINGER_SSH_USER }}
         password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
         port: 65002
-        script: |
-          mkdir -p ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-          cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-          npm install --production
+        source: "backend-node/node_modules/@tracespace,backend-node/node_modules/unist-util-is,backend-node/node_modules/moo,backend-node/node_modules/nearley,backend-node/node_modules/vfile,backend-node/node_modules/unist"
+        target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/node_modules"
+        strip_components: 2
 
     # 🔵 2. SETUP & BUILD FRONTEND
     - name: ⚙️ Setup Node for Frontend

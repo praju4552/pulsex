@@ -273,14 +273,15 @@ function extractBoardDimensions(files, warnings) {
                 const tree = parser.results();
                 const image = plot(tree);
                 if (image && image.size && image.size.length === 4) {
-                    const [_x, _y, w, h] = image.size;
+                    // Tracespace v5 image.size is viewBox format: [x1, y1, x2, y2]
+                    const [x1, y1, x2, y2] = image.size;
+                    const w = x2 - x1;
+                    const h = y2 - y1;
                     const factor = image.units === 'in' ? 25.4 : 1;
                     finalW = parseFloat((w * factor).toFixed(2));
                     finalH = parseFloat((h * factor).toFixed(2));
-                    console.log('[gerberParser] Tracespace size array:', image.size);
-                    console.log('[gerberParser] Units:', image.units, 'Factor:', factor);
-                    console.log('[gerberParser] FINAL WIDTH MM:', finalW);
-                    console.log('[gerberParser] FINAL HEIGHT MM:', finalH);
+                    console.log('[gerberParser] Tracespace size:', image.size, 'units:', image.units);
+                    console.log('[gerberParser] Computed:', finalW, 'x', finalH, 'mm');
                 }
             }
             if (finalW <= 0 || finalH <= 0) {

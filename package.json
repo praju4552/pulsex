@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "main": "backend-node/dist/app.js",
   "scripts": {
     "start": "cd backend-node && node dist/app.js",
     "dev": "vite",

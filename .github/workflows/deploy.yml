@@ -45,6 +45,17 @@ jobs:
         target: "~/domains/pulsewritexsolutions.com/backendnode"
         strip_components: 1
 
+    - name: 📦 Install Dependencies on Hostinger via SSH
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: ${{ secrets.HOSTINGER_SSH_HOST }}
+        username: ${{ secrets.HOSTINGER_SSH_USER }}
+        password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        port: 65002
+        script: |
+          cd ~/domains/pulsewritexsolutions.com/backendnode
+          npm install --production
+
     # 🔵 2. SETUP & BUILD FRONTEND
     - name: ⚙️ Setup Node for Frontend
       uses: actions/setup-node@v4

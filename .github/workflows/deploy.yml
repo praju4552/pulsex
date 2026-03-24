@@ -33,40 +33,27 @@ jobs:
           source: "server.js"
           target: "~/domains/pulsewritexsolutions.com/"
 
-      - name: 🚀 Copy dist to server
+      - name: 🚀 Deploy Backend (primary path)
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/dist/,backend-node/prisma/,backend-node/package.json,backend-node/package-lock.json"
-          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/"
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          target: "~/domains/pulsewritexsolutions.com/backendnode"
           strip_components: 1
 
-      - name: 📦 Copy node_modules to server
+      - name: 🚀 Deploy Backend (secondary path)
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/node_modules/@tracespace/"
-          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/node_modules/"
-          strip_components: 3
-
-      - name: 🔄 Restart app on Hostinger
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          script: |
-            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
-            cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-            npm install --ignore-scripts --prefer-offline
-            echo "Deployment complete"
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
+          strip_components: 1
 
       # 🔵 2. SETUP & BUILD FRONTEND
       - name: ⚙️ Setup Node for Frontend

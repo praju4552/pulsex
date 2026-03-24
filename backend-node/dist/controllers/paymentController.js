@@ -16,7 +16,7 @@ exports.verifyPayment = exports.initiatePayment = void 0;
 const db_1 = __importDefault(require("../db"));
 const razorpayService_1 = require("../services/razorpayService");
 const initiatePayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b;
     try {
         const { totalAmountInPaise, orderIds, orderType } = req.body;
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
@@ -44,7 +44,8 @@ const initiatePayment = (req, res) => __awaiter(void 0, void 0, void 0, function
     }
     catch (err) {
         console.error('Payment initiation error:', err);
-        res.status(500).json({ error: 'Could not initiate payment' });
+        const apiError = ((_b = err === null || err === void 0 ? void 0 : err.error) === null || _b === void 0 ? void 0 : _b.description) || err.message || JSON.stringify(err);
+        res.status(500).json({ error: `Razorpay Error: ${apiError}` });
     }
 });
 exports.initiatePayment = initiatePayment;

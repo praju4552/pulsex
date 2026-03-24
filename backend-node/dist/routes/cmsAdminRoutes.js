@@ -11,4 +11,6 @@ router.get('/users', cmsAdminController_1.listUsers);
 router.get('/users/:id', cmsAdminController_1.getUserDetail);
 router.get('/pricing', cmsAdminController_1.getPricingConfigs);
 router.patch('/pricing', cmsAdminController_1.updatePricingConfig);
+router.get('/orders', cmsAdminController_1.getAllOrders);
+router.get('/payments', cmsAdminController_1.getAllPayments);
 exports.default = router;

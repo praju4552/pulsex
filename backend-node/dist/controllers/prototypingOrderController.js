@@ -151,20 +151,53 @@ function listUserPrototypingOrders(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const { userId } = req.params;
-            // Security: Verify the requesting user can only see their own orders
-            // SUPER_ADMIN can see any user's orders
             const requestingUser = req.user;
+            let targetUserId = userId;
             const SUPER_ADMIN_EMAILS = ['prajwalshetty4552@gmail.com', 'pulsewritexsolutions@gmail.com'];
+            // Security: Force target ID to be the authenticated user's token ID unless superadmin
             if ((requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.role) !== 'SUPER_ADMIN' || !SUPER_ADMIN_EMAILS.includes(requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.email)) {
-                if ((requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.userId) !== userId) {
-                    return res.status(403).json({ error: 'Access denied: you can only view your own orders.' });
+                if (!(requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.id)) {
+                    return res.status(401).json({ error: 'Invalid token payload missing user ID' });
                 }
+                targetUserId = requestingUser.id; // Override path parameter forcibly
             }
-            const orders = yield db_1.default.prototypingOrder.findMany({
-                where: { userId },
-                orderBy: { createdAt: 'desc' },
+            const [protoOrders, threeDOrders, laserOrders] = yield Promise.all([
+                db_1.default.prototypingOrder.findMany({
+                    where: { userId: targetUserId },
+                    orderBy: { createdAt: 'desc' },
+                }),
+                db_1.default.threeDOrder.findMany({
+                    where: { userId: targetUserId },
+                    include: { file: { include: { config: true } } },
+                    orderBy: { createdAt: 'desc' },
+                }),
+                db_1.default.laserCuttingOrder.findMany({
+                    where: { userId: targetUserId },
+                    include: { file: { include: { config: true } } },
+                    orderBy: { createdAt: 'desc' },
+                })
+            ]);
+            const formattedProto = protoOrders.map(o => (Object.assign(Object.assign({}, o), { serviceType: o.serviceType === 'PCB' ? 'PCB Printing' : 'Custom Prototyping' })));
+            const formatted3D = threeDOrders.map(o => {
+                var _a, _b, _c, _d;
+                return ({
+                    id: o.id, orderRef: `3D-${o.id.substring(0, 6).toUpperCase()}`,
+                    createdAt: o.createdAt, specSummary: `3D Print: ${(_b = (_a = o.file) === null || _a === void 0 ? void 0 : _a.config) === null || _b === void 0 ? void 0 : _b.material} (${(_d = (_c = o.file) === null || _c === void 0 ? void 0 : _c.config) === null || _d === void 0 ? void 0 : _d.finish})`,
+                    totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+                    serviceType: '3D Printing'
+                });
             });
-            return res.json(orders);
+            const formattedLaser = laserOrders.map(o => {
+                var _a, _b, _c, _d;
+                return ({
+                    id: o.id, orderRef: `LC-${o.id.substring(0, 6).toUpperCase()}`,
+                    createdAt: o.createdAt, specSummary: `Laser: ${(_b = (_a = o.file) === null || _a === void 0 ? void 0 : _a.config) === null || _b === void 0 ? void 0 : _b.material} (${(_d = (_c = o.file) === null || _c === void 0 ? void 0 : _c.config) === null || _d === void 0 ? void 0 : _d.serviceType})`,
+                    totalAmount: o.price, orderStatus: o.status, paymentStatus: 'PAID',
+                    serviceType: 'Laser Cutting'
+                });
+            });
+            const allOrders = [...formattedProto, ...formatted3D, ...formattedLaser].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return res.json(allOrders);
         }
         catch (err) {
             console.error('[listUserPrototypingOrders]', err);

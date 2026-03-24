@@ -189,8 +189,10 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         const projectId = yield (0, idGenerator_1.generateId)('PID');
         const jobId = yield (0, idGenerator_1.generateId)('LC');
         // 4. Create unified PrototypingOrder entry (visible in admin dashboard)
+        const orderRef = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const protoOrder = yield db_1.default.prototypingOrder.create({
             data: {
+                orderRef,
                 firstName: customerInfo.firstName,
                 lastName: customerInfo.lastName,
                 email: customerInfo.email,

@@ -6,7 +6,8 @@
     "scripts": {
         "start": "npm install --omit=dev && npx prisma generate && npx prisma db push && node dist/app.js",
         "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
-        "build": "tsc",
+        "build": "echo 'Pre-built dist folder used'",
+        "build:ts": "tsc",
         "prisma:generate": "prisma generate",
         "prisma:push": "prisma db push"
     },

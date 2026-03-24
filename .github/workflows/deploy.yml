@@ -74,5 +74,22 @@ jobs:
             echo "Restarting Node.js..."
             killall -9 node || true
 
+      - name: Build Frontend
+        env:
+          VITE_API_URL: https://api.pulsewritexsolutions.com
+          VITE_GOOGLE_CLIENT_ID: 835363988192-jr2ftrbtlklhui007gosnstjqca77m71.apps.googleusercontent.com
+          VITE_RAZORPAY_KEY_ID: rzp_live_SUdncOeOPfYDuL
+        run: |
+          npm install
+          npm run build
 
-
+      - name: Deploy Frontend to Hostinger
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "dist/*"
+          target: "~/domains/pulsewritexsolutions.com/public_html"
+          strip_components: 1

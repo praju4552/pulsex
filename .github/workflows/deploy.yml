@@ -22,29 +22,39 @@ jobs:
           npm install
           npm run build
 
-      - name: Copy dist to server
+      - name: Deploy Root Server Bootloader
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/dist/"
-          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/"
-          strip_components: 1
+          source: "server.js"
+          target: "~/domains/pulsewritexsolutions.com/"
 
-      - name: Copy package.json to server
+      - name: Deploy Backend (primary - backendnode)
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/package.json,backend-node/package-lock.json,backend-node/prisma/"
-          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node/"
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          target: "~/domains/pulsewritexsolutions.com/backendnode"
           strip_components: 1
 
-      - name: Install and setup on server
+      - name: Deploy Backend (secondary - nodejs)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
+          strip_components: 1
+
+      - name: Install deps and generate Prisma on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
@@ -53,9 +63,33 @@ jobs:
           port: 65002
           script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
+            cd ~/domains/pulsewritexsolutions.com/backendnode
+            npm install --omit=dev
+            ./node_modules/.bin/prisma generate || true
+            chmod -R +x ./node_modules/.bin/ || true
             cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
             npm install --omit=dev
-            ./node_modules/.bin/prisma generate
-            chmod -R +x ./node_modules/.bin/
-            echo "Restarting Node.js application..."
+            ./node_modules/.bin/prisma generate || true
+            chmod -R +x ./node_modules/.bin/ || true
+            echo "Restarting Node.js..."
             killall -9 node || true
+
+      - name: Build and Deploy Frontend
+        env:
+          VITE_API_URL: https://api.pulsewritexsolutions.com
+          VITE_GOOGLE_CLIENT_ID: 835363988192-jr2ftrbtlklhui007gosnstjqca77m71.apps.googleusercontent.com
+          VITE_RAZORPAY_KEY_ID: rzp_live_SUdncOeOPfYDuL
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy Frontend to Hostinger
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "dist/*,dist/.htaccess"
+          target: "~/domains/pulsewritexsolutions.com/public_html"
+          strip_components: 1

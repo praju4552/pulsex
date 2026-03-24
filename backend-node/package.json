@@ -1,6 +1,7 @@
 {
     "name": "project-templates-backend",
     "version": "1.0.0",
+    "type": "commonjs",
     "description": "Backend service for Project Templates module",
     "main": "dist/app.js",
     "scripts": {

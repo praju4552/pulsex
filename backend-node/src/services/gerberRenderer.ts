@@ -1,8 +1,95 @@
 import AdmZip from 'adm-zip';
 import { Readable } from 'stream';
+import { createParser } from '@tracespace/parser';
+import { plot } from '@tracespace/plotter';
+import { identifyLayers as identify } from '@tracespace/identify-layers';
 
 const pcbStackup = require('pcb-stackup');
 const gerberToSvg = require('gerber-to-svg');
+
+async function extractBoardDimensions(files: { filename: string; content: Buffer }[]): Promise<{ width: number; height: number; units: string } | null> {
+  try {
+    // Step A: Identify which file is the board outline
+    const identified = identify(files.map(f => f.filename));
+    
+    const outlineFile = files.find(f => {
+      const layerType = identified[f.filename]?.type;
+      return layerType === 'outline' || 
+             f.filename.match(/\.(GKO|GM1|GBR)$/i) ||
+             f.filename.toLowerCase().includes('edge') ||
+             f.filename.toLowerCase().includes('outline') ||
+             f.filename.toLowerCase().includes('profile');
+    });
+
+    if (!outlineFile) {
+      console.error('NO OUTLINE FILE FOUND. Available files:', files.map(f => f.filename));
+      return null;
+    }
+
+    console.log('USING OUTLINE FILE:', outlineFile.filename);
+
+    // Step B: Parse the Gerber file
+    const parser = createParser();
+    const gerberText = outlineFile.content.toString('utf8');
+    
+    let tree;
+    try {
+      parser.feed(gerberText);
+      tree = parser.results(); // v5 returns a single Root AST node, not an array
+    } catch(e) {
+      console.error('PARSER ERROR:', e);
+      return null;
+    }
+
+    if (!tree) {
+      console.error('PARSE RESULT IS NULL');
+      return null;
+    }
+
+    // Step C: Plot to get bounding box
+    const image = plot(tree as any);
+    
+    if (!image || !image.size || image.size.length === 0) {
+      console.error('IMAGE OR SIZE ENVELOPE IS NULL');
+      return null;
+    }
+
+    console.log('RAW SIZE ENVELOPE:', image.size);
+    console.log('IMAGE UNITS:', image.units);
+
+    // ImageTree in v5 stores size as [x1, y1, x2, y2]
+    const [x1, y1, x2, y2] = image.size as [number, number, number, number];
+    const width = x2 - x1;
+    const height = y2 - y1;
+
+    // Step D: Convert to mm if needed
+    const factor = image.units === 'in' ? 25.4 : 1;
+    const finalWidth  = parseFloat((width  * factor).toFixed(2));
+    const finalHeight = parseFloat((height * factor).toFixed(2));
+
+    console.log('FINAL WIDTH MM:', finalWidth);
+    console.log('FINAL HEIGHT MM:', finalHeight);
+
+    if (finalWidth <= 0 || finalHeight <= 0) {
+      console.error('INVALID DIMENSIONS: zero or negative');
+      return null;
+    }
+
+    if (finalWidth > 1000 || finalHeight > 1000) {
+      console.warn('WARNING: Dimensions exceed 1000mm, may be incorrect');
+    }
+
+    return {
+      width: finalWidth,
+      height: finalHeight,
+      units: 'mm'
+    };
+
+  } catch (err) {
+    console.error('extractBoardDimensions ERROR:', err);
+    return null;
+  }
+}
 
 const LAYER_TYPE_MAP: Record<string, string> = {
   '.gtl': 'copper', '.cmp': 'copper',
@@ -180,7 +267,17 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
     boardWidth = parseFloat(w.toFixed(2));
     boardHeight = parseFloat(h.toFixed(2));
 
-    // Removed Step 3: pcb-stackup natively calculates contours from the `outline` type layer
+    // ── Step 3: Precise Dimensions via Tracespace Override ──
+    const traceDims = await extractBoardDimensions(layerEntries.map(l => ({
+      filename: l.name || l.type,
+      content: Buffer.isBuffer(l.content) ? l.content : Buffer.from(l.content)
+    })));
+
+    if (traceDims) {
+      boardWidth = traceDims.width;
+      boardHeight = traceDims.height;
+      boardUnits = traceDims.units;
+    }
 
   } catch {
     // If stackup fails, fall back to individual layer rendering only
@@ -202,7 +299,17 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
       boardWidth = parseFloat(w.toFixed(2));
       boardHeight = parseFloat(h.toFixed(2));
 
-      // Removed Step 3: pcb-stackup fallback natively calculates contours from the `outline` type layer
+      // ── Step 3: Precise Dimensions via Tracespace Override (Fallback) ──
+      const traceDimsFallback = await extractBoardDimensions(layerEntries.map(l => ({
+        filename: l.name || l.type,
+        content: Buffer.isBuffer(l.content) ? l.content : Buffer.from(l.content)
+      })));
+
+      if (traceDimsFallback) {
+        boardWidth = traceDimsFallback.width;
+        boardHeight = traceDimsFallback.height;
+        boardUnits = traceDimsFallback.units;
+      }
 
     } catch (e2) {
       throw new Error(`Gerber rendering failed: ${e2 instanceof Error ? e2.message : String(e2)}`);

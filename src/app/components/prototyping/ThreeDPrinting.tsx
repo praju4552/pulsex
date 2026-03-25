@@ -196,46 +196,39 @@ export default function ThreeDPrinting() {
     });
   };
 
-  const submitOrder = async () => {
-    setStep('processing');
-    try {
-      const selectedQuality = qualities.find(q => q.id === config.quality);
-      
-      const payloadConfig = {
-        ...config,
-        layerHeight: selectedQuality ? selectedQuality.layerHeight : 0.2
-      };
+  const handleSaveToCart = () => {
+    const selectedQuality = qualities.find(q => q.id === config.quality);
+    const payloadConfig = {
+      ...config,
+      layerHeight: selectedQuality ? selectedQuality.layerHeight : 0.2
+    };
 
-      const res = await fetch(`${API_BASE_URL}/three-d-printing/order`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(user?.token ? { 'Authorization': `Bearer ${user.token}` } : {})
-        },
-        body: JSON.stringify({
-          userId: user?.id,
-          fileId,
-          config: payloadConfig,
-          price: price.total,
-          customerInfo: user ? { firstName: user.name?.split(' ')[0] || '', lastName: user.name?.split(' ').slice(1).join(' ') || '', email: user.email, phone: user.phone || '—' } : { firstName: 'Guest', lastName: 'User', email: 'guest@example.com', phone: '—' },
-          shippingInfo: { 
-            streetAddress: '123 Test St', 
-            city: 'Test City', 
-            state: 'TS', 
-            zip: '12345', 
-            country: 'India', 
-            method: 'Standard', 
-            cost: 100 
-          }
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      window.location.href = '/prototyping/orders';
-    } catch (err: any) {
-      setError(err.message);
-      setStep('configure');
-    }
+    const cartItem = {
+      id: Date.now().toString(),
+      type: '3D Printing',
+      spec: `3D Print: ${config.material}, ${config.infill}% Infill, ${config.finish}`,
+      fullSpec: {
+         fileId,
+         config: payloadConfig
+      },
+      qty: config.quantity || 1,
+      pcbPrice: price.total,
+      shippingMethod: 'Standard',
+      shippingCost: 100,
+      image: 'https://images.unsplash.com/photo-1581092335397-9583eb92d232?q=80&w=2070&auto=format&fit=crop'
+    };
+
+    let cart = [];
+    try {
+      const saved = localStorage.getItem('prototyping_cart');
+      if (saved) cart = JSON.parse(saved);
+    } catch {}
+
+    cart.push(cartItem);
+    localStorage.setItem('prototyping_cart', JSON.stringify(cart));
+    
+    // Redirect to cart
+    window.location.href = '/prototyping/cart';
   };
 
   return (
@@ -570,10 +563,10 @@ export default function ThreeDPrinting() {
                                 </div>
                                 <div className="flex flex-col items-end gap-2">
                                     <button 
-                                        onClick={submitOrder}
+                                        onClick={handleSaveToCart}
                                         className="px-8 py-4 bg-[#00cc55] hover:bg-[#00cc55]/90 text-black font-black rounded-2xl flex items-center gap-3 shadow-[0_0_30px_rgba(0,204,85,0.3)] transition-all hover:scale-105 active:scale-95"
                                     >
-                                        Confirm Order <ChevronRight className="w-5 h-5" />
+                                        Save to Cart <ChevronRight className="w-5 h-5" />
                                     </button>
                                     <button
                                         onClick={() => { setStep('upload'); setFile(null); setFileId(null); setMetadata(null); setError(null); }}

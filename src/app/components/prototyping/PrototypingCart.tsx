@@ -81,43 +81,89 @@ export default function PrototypingCart() {
 
     try {
       for (const item of items) {
-        const payload = {
-          firstName: shipping.firstName,
-          lastName: shipping.lastName,
-          email: shipping.email,
-          phone: shipping.phone,
-          streetAddress: shipping.address,
-          apartment: shipping.apartment,
-          city: shipping.city,
-          state: shipping.state,
-          zip: shipping.zip,
-          country: shipping.country,
-          serviceType: item.type,
-          specifications: item.fullSpec || {},
-          specSummary: item.spec,
-          shippingMethod: item.shippingMethod,
-          shippingCost: item.shippingCost,
-          pcbPrice: item.pcbPrice,
-          totalAmount: Math.round(item.pcbPrice + item.shippingCost + (item.pcbPrice * 0.18)),
-          userId: JSON.parse(localStorage.getItem('prototypingUser') || '{}').id || null
-        };
+        let orderId = null;
+        let orderRef = null;
 
-        const res = await fetch(`${API_BASE_URL}/prototyping-orders`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${JSON.parse(localStorage.getItem('prototypingUser') || '{}').token}`
-          },
-          body: JSON.stringify(payload)
-        });
+        if (item.type === '3D Printing') {
+          const threeDPayload = {
+            userId: JSON.parse(localStorage.getItem('prototypingUser') || '{}').id || null,
+            fileId: item.fullSpec.fileId,
+            config: item.fullSpec.config,
+            price: item.pcbPrice,
+            quantity: item.qty,
+            customerInfo: { 
+              firstName: shipping.firstName, 
+              lastName: shipping.lastName, 
+              email: shipping.email, 
+              phone: shipping.phone 
+            },
+            shippingInfo: { 
+              streetAddress: shipping.address, 
+              apartment: shipping.apartment, 
+              city: shipping.city, 
+              state: shipping.state, 
+              zip: shipping.zip, 
+              country: shipping.country,
+              method: item.shippingMethod || 'Standard', 
+              cost: item.shippingCost || 0
+            }
+          };
 
-        if (!res.ok) throw new Error('Failed to submit order');
-        const data = await res.json();
-        if (data.order?.id) {
-          createdOrderIds.push(data.order.id);
+          const res = await fetch(`${API_BASE_URL}/three-d-printing/order`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${JSON.parse(localStorage.getItem('prototypingUser') || '{}').token}`
+            },
+            body: JSON.stringify(threeDPayload)
+          });
+
+          if (!res.ok) throw new Error('Failed to submit 3D Printing order');
+          const data = await res.json();
+          orderId = data.orderId;
+          orderRef = data.orderRef;
+        } else {
+          const payload = {
+            firstName: shipping.firstName,
+            lastName: shipping.lastName,
+            email: shipping.email,
+            phone: shipping.phone,
+            streetAddress: shipping.address,
+            apartment: shipping.apartment,
+            city: shipping.city,
+            state: shipping.state,
+            zip: shipping.zip,
+            country: shipping.country,
+            serviceType: item.type,
+            specifications: item.fullSpec || {},
+            specSummary: item.spec,
+            shippingMethod: item.shippingMethod,
+            shippingCost: item.shippingCost,
+            pcbPrice: item.pcbPrice,
+            totalAmount: Math.round(item.pcbPrice + item.shippingCost + (item.pcbPrice * 0.18)),
+            userId: JSON.parse(localStorage.getItem('prototypingUser') || '{}').id || null
+          };
+
+          const res = await fetch(`${API_BASE_URL}/prototyping-orders`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${JSON.parse(localStorage.getItem('prototypingUser') || '{}').token}`
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) throw new Error('Failed to submit order');
+          const data = await res.json();
+          orderId = data.order?.id;
+          orderRef = data.order?.orderRef;
         }
-        if (data.order?.orderRef) {
-          setPlacedOrderRefs(prev => [...prev, data.order.orderRef]);
+
+        if (orderId) {
+          createdOrderIds.push(orderId);
+        }
+        if (orderRef) {
+          setPlacedOrderRefs(prev => [...prev, orderRef]);
         }
       }
 

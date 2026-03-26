@@ -369,7 +369,12 @@ export default function PCBPrinting() {
         detectedLayers: parsedData.detectedLayers,
         fileCount: parsedData.fileCount,
       });
-      setParseWarnings(parsedData.warnings);
+      // Filter out internal debug warnings that shouldn't be shown to users
+      const debugPrefixes = ['Picked outline', 'Manual parser:', 'Found candidate in'];
+      const userWarnings = (parsedData.warnings || []).filter(
+        (w: string) => !debugPrefixes.some(prefix => w.startsWith(prefix))
+      );
+      setParseWarnings(userWarnings);
       setParseStatus('success');
 
       // Save to history
@@ -484,7 +489,8 @@ export default function PCBPrinting() {
                                 detectedLayers: item.parseResult.detectedLayers,
                                 fileCount: item.parseResult.fileCount,
                               });
-                              setParseWarnings(item.parseResult.warnings);
+                              const dbgPfx = ['Picked outline', 'Manual parser:', 'Found candidate in'];
+                              setParseWarnings((item.parseResult.warnings || []).filter((w: string) => !dbgPfx.some(p => w.startsWith(p))));
                               setShowHistory(false);
                             }}
                             className="w-full text-left p-4 hover:bg-white/[0.04] transition-colors group"

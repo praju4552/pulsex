@@ -620,6 +620,7 @@ export default function ThreeDPrinting() {
 function ThreeDViewer({ 
   file, 
   scale, 
+  _config,
   _metadata,
   sliceEnabled,
   slicePosition,
@@ -643,6 +644,7 @@ function ThreeDViewer({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const linesGroupRef = useRef<THREE.Group | null>(null);
+  const infillGroupRef = useRef<THREE.Group | null>(null);
   const clippingPlaneRef = useRef<THREE.Plane>(new THREE.Plane(new THREE.Vector3(0, -1, 0), 100));
   const sliceVisualPlaneRef = useRef<THREE.Mesh | null>(null);
 
@@ -745,6 +747,11 @@ function ThreeDViewer({
     sliceVisual.visible = false;
     scene.add(sliceVisual);
     sliceVisualPlaneRef.current = sliceVisual;
+
+    // Infill visualization group
+    const infillGroup = new THREE.Group();
+    scene.add(infillGroup);
+    infillGroupRef.current = infillGroup;
 
     // Load Model
     const loader = new STLLoader();
@@ -973,6 +980,66 @@ function ThreeDViewer({
     }
   }, [sliceEnabled, slicePosition, scale]);
 
+  // Update Infill Visualization when infill % changes
+  useEffect(() => {
+    if (!meshRef.current || !infillGroupRef.current) return;
+    const group = infillGroupRef.current;
+    group.clear();
+
+    const infillPercent = _config?.infill ?? 20;
+    if (infillPercent <= 0) return;
+
+    meshRef.current.geometry.computeBoundingBox();
+    const box = meshRef.current.geometry.boundingBox;
+    if (!box) return;
+
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    size.multiplyScalar(scale);
+
+    const halfX = size.x / 2;
+    const halfY = size.y / 2;
+    const halfZ = size.z / 2;
+
+    // Calculate grid spacing based on infill: more infill = more lines = smaller spacing
+    // At 10%, very few lines; at 100%, very dense
+    const lineCount = Math.max(2, Math.round(infillPercent / 8));
+    const stepX = size.x / (lineCount + 1);
+    const stepZ = size.z / (lineCount + 1);
+
+    const lineMat = new THREE.LineBasicMaterial({ 
+      color: 0x00cc55, 
+      transparent: true, 
+      opacity: Math.min(0.15 + (infillPercent / 200), 0.5) 
+    });
+
+    // X-direction lines (along Z axis)
+    for (let i = 1; i <= lineCount; i++) {
+      const x = -halfX + stepX * i;
+      const points = [new THREE.Vector3(x, -halfY + 0.5, -halfZ), new THREE.Vector3(x, -halfY + 0.5, halfZ)];
+      const geom = new THREE.BufferGeometry().setFromPoints(points);
+      group.add(new THREE.Line(geom, lineMat));
+    }
+
+    // Z-direction lines (along X axis)
+    for (let i = 1; i <= lineCount; i++) {
+      const z = -halfZ + stepZ * i;
+      const points = [new THREE.Vector3(-halfX, -halfY + 0.5, z), new THREE.Vector3(halfX, -halfY + 0.5, z)];
+      const geom = new THREE.BufferGeometry().setFromPoints(points);
+      group.add(new THREE.Line(geom, lineMat));
+    }
+
+    // Y-direction horizontal layers (every few mm based on infill)
+    const layerStep = size.y / Math.max(2, Math.round(infillPercent / 12));
+    for (let y = -halfY + layerStep; y < halfY; y += layerStep) {
+      // Draw a simple X cross at each layer for visual density
+      const points1 = [new THREE.Vector3(-halfX, y, -halfZ), new THREE.Vector3(halfX, y, halfZ)];
+      const points2 = [new THREE.Vector3(-halfX, y, halfZ), new THREE.Vector3(halfX, y, -halfZ)];
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points1), lineMat));
+      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points2), lineMat));
+    }
+  }, [_config?.infill, scale, loading]);
+
   const updateMeasurementLines = (geometry: THREE.BufferGeometry, group: THREE.Group, currentScale: number) => {
     group.clear();
     geometry.computeBoundingBox();
@@ -1014,9 +1081,9 @@ function ThreeDViewer({
         group.add(sprite);
     };
 
-    createDimLine(new THREE.Vector3(-halfX, -halfY - offset, halfZ), new THREE.Vector3(halfX, -halfY - offset, halfZ), `${(size.x).toFixed(1)} mm`);
-    createDimLine(new THREE.Vector3(-halfX - offset, -halfY, halfZ), new THREE.Vector3(-halfX - offset, halfY, halfZ), `${(size.y).toFixed(1)} mm`);
-    createDimLine(new THREE.Vector3(halfX + offset, -halfY, -halfZ), new THREE.Vector3(halfX + offset, -halfY, halfZ), `${(size.z).toFixed(1)} mm`);
+    createDimLine(new THREE.Vector3(-halfX, -halfY - offset, halfZ), new THREE.Vector3(halfX, -halfY - offset, halfZ), `X = ${(size.x).toFixed(1)} mm`);
+    createDimLine(new THREE.Vector3(-halfX - offset, -halfY, halfZ), new THREE.Vector3(-halfX - offset, halfY, halfZ), `Y = ${(size.y).toFixed(1)} mm`);
+    createDimLine(new THREE.Vector3(halfX + offset, -halfY, -halfZ), new THREE.Vector3(halfX + offset, -halfY, halfZ), `Z = ${(size.z).toFixed(1)} mm`);
   };
 
   return (

@@ -620,7 +620,6 @@ export default function ThreeDPrinting() {
 function ThreeDViewer({ 
   file, 
   scale, 
-  _config,
   _metadata,
   sliceEnabled,
   slicePosition,
@@ -644,7 +643,6 @@ function ThreeDViewer({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const linesGroupRef = useRef<THREE.Group | null>(null);
-  const infillGroupRef = useRef<THREE.Group | null>(null);
   const clippingPlaneRef = useRef<THREE.Plane>(new THREE.Plane(new THREE.Vector3(0, -1, 0), 100));
   const sliceVisualPlaneRef = useRef<THREE.Mesh | null>(null);
 
@@ -748,11 +746,6 @@ function ThreeDViewer({
     scene.add(sliceVisual);
     sliceVisualPlaneRef.current = sliceVisual;
 
-    // Infill visualization group
-    const infillGroup = new THREE.Group();
-    scene.add(infillGroup);
-    infillGroupRef.current = infillGroup;
-
     // Load Model
     const loader = new STLLoader();
     const reader = new FileReader();
@@ -802,7 +795,7 @@ function ThreeDViewer({
         mesh.geometry.computeBoundingBox(); // Recalculate
         
         const maxDim = Math.max(size.x, size.y, size.z);
-        const distance = maxDim * 2.5;
+        const distance = maxDim * 1.6; // Changed from 2.5 to 1.6 to make model larger by default
         const modelHeight = size.y;
         
         // Initial view is Isometric
@@ -857,7 +850,7 @@ function ThreeDViewer({
         const size = new THREE.Vector3();
         box.getSize(size);
         const maxDim = Math.max(size.x * scale, size.y * scale, size.z * scale);
-        const dist = maxDim * 2.5;
+        const dist = maxDim * 1.6; // Changed from 2.5 to 1.6 to match initial zoom
         const centerY = (size.y * scale) / 2;
         
         const type = e.detail;
@@ -980,66 +973,6 @@ function ThreeDViewer({
     }
   }, [sliceEnabled, slicePosition, scale]);
 
-  // Update Infill Visualization when infill % changes
-  useEffect(() => {
-    if (!meshRef.current || !infillGroupRef.current) return;
-    const group = infillGroupRef.current;
-    group.clear();
-
-    const infillPercent = _config?.infill ?? 20;
-    if (infillPercent <= 0) return;
-
-    meshRef.current.geometry.computeBoundingBox();
-    const box = meshRef.current.geometry.boundingBox;
-    if (!box) return;
-
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    size.multiplyScalar(scale);
-
-    const halfX = size.x / 2;
-    const halfY = size.y / 2;
-    const halfZ = size.z / 2;
-
-    // Calculate grid spacing based on infill: more infill = more lines = smaller spacing
-    // At 10%, very few lines; at 100%, very dense
-    const lineCount = Math.max(2, Math.round(infillPercent / 8));
-    const stepX = size.x / (lineCount + 1);
-    const stepZ = size.z / (lineCount + 1);
-
-    const lineMat = new THREE.LineBasicMaterial({ 
-      color: 0x00cc55, 
-      transparent: true, 
-      opacity: Math.min(0.15 + (infillPercent / 200), 0.5) 
-    });
-
-    // X-direction lines (along Z axis)
-    for (let i = 1; i <= lineCount; i++) {
-      const x = -halfX + stepX * i;
-      const points = [new THREE.Vector3(x, -halfY + 0.5, -halfZ), new THREE.Vector3(x, -halfY + 0.5, halfZ)];
-      const geom = new THREE.BufferGeometry().setFromPoints(points);
-      group.add(new THREE.Line(geom, lineMat));
-    }
-
-    // Z-direction lines (along X axis)
-    for (let i = 1; i <= lineCount; i++) {
-      const z = -halfZ + stepZ * i;
-      const points = [new THREE.Vector3(-halfX, -halfY + 0.5, z), new THREE.Vector3(halfX, -halfY + 0.5, z)];
-      const geom = new THREE.BufferGeometry().setFromPoints(points);
-      group.add(new THREE.Line(geom, lineMat));
-    }
-
-    // Y-direction horizontal layers (every few mm based on infill)
-    const layerStep = size.y / Math.max(2, Math.round(infillPercent / 12));
-    for (let y = -halfY + layerStep; y < halfY; y += layerStep) {
-      // Draw a simple X cross at each layer for visual density
-      const points1 = [new THREE.Vector3(-halfX, y, -halfZ), new THREE.Vector3(halfX, y, halfZ)];
-      const points2 = [new THREE.Vector3(-halfX, y, halfZ), new THREE.Vector3(halfX, y, -halfZ)];
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points1), lineMat));
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points2), lineMat));
-    }
-  }, [_config?.infill, scale, loading]);
-
   const updateMeasurementLines = (geometry: THREE.BufferGeometry, group: THREE.Group, currentScale: number) => {
     group.clear();
     geometry.computeBoundingBox();
@@ -1062,22 +995,22 @@ function ThreeDViewer({
         group.add(line);
 
         const canvas = document.createElement('canvas');
-        canvas.width = 128;
+        canvas.width = 256;
         canvas.height = 64;
         const ctx = canvas.getContext('2d');
         if (ctx) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.fillRect(0, 0, 128, 64);
+            ctx.fillRect(0, 0, 256, 64);
             ctx.font = 'Bold 24px Arial';
             ctx.fillStyle = '#333333';
             ctx.textAlign = 'center';
-            ctx.fillText(label, 64, 40);
+            ctx.fillText(label, 128, 40);
         }
         const texture = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ map: texture, sizeAttenuation: false });
         const sprite = new THREE.Sprite(spriteMat);
         sprite.position.copy(start.clone().add(end).multiplyScalar(0.5));
-        sprite.scale.set(0.08, 0.04, 1);
+        sprite.scale.set(0.16, 0.04, 1);
         group.add(sprite);
     };
 

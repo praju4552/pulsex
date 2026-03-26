@@ -180,7 +180,7 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
 
     // ── Step 2: If no outline file, scan ALL non-drill Gerber files ──
     if (!outlineFile) {
-      warnings.push(`No outline file found. Scanning all ${files.length} files for board boundary...`);
+      // (Removed debug warning: "No outline file found...")
       let bestDims: { width: number; height: number } | null = null;
       let maxArea = 0;
       for (const f of files) {
@@ -195,7 +195,7 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
           if (dims.width < 1000 && dims.height < 1000 && (bestDims === null || area > maxArea)) {
             bestDims = dims;
             maxArea = area;
-            warnings.push(`Found candidate in ${f.filename}: ${dims.width}x${dims.height}mm (Area: ${area.toFixed(0)})`);
+            // (Removed debug warning: "Found candidate in...")
           }
         }
       }
@@ -205,12 +205,10 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
     }
 
     // ── Step 3: Parse the outline file with our manual parser ──
-    warnings.push(`Picked outline candidate file: ${outlineFile.filename}`);
     const outlineData = outlineFile.content.toString('utf8');
     const manualDims = manualCoordinateParse(outlineData);
 
     if (manualDims && manualDims.width > 0 && manualDims.height > 0) {
-      warnings.push(`Manual parser: ${manualDims.width}x${manualDims.height}mm`);
       if (manualDims.width < 1 || manualDims.height < 1 || manualDims.width > 2000 || manualDims.height > 2000) {
         warnings.push(`Dimensions out of range — discarding.`);
         return null;
@@ -218,7 +216,7 @@ async function extractBoardDimensions(files: { filename: string; content: Buffer
       return manualDims;
     }
 
-    warnings.push(`Manual parser returned invalid dimensions for ${outlineFile.filename}`);
+    warnings.push(`Could not automatically extract dimensions from ${outlineFile.filename}`);
     return null;
   } catch (err) {
     warnings.push(`extractBoardDimensions crash: ${err instanceof Error ? err.message : String(err)}`);

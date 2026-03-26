@@ -1,1 +1,0 @@
-d:\pulsex(prototyping)\vite.config.ts | Vite: True | Tailwind: False | ESLint: False

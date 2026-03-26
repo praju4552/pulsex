@@ -1,2 +1,0 @@
-CoreSize: 54370566
-NodeModulesSize: 296174969

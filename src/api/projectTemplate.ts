@@ -5,8 +5,10 @@ const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const api = axios.create({ baseURL: BASE });
 api.interceptors.request.use(cfg => {
-    const token = localStorage.getItem('authToken');
-    if (token) cfg.headers.Authorization = `Bearer ${token}`;
+    // authToken is now stored in React memory (AuthContext), not localStorage.
+    // TODO: inject token via a module-level setter or React context bridge
+    // once the silent-refresh / httpOnly-cookie flow is implemented.
+    // Until then, these requests will be unauthenticated when no token is in-flight.
     return cfg;
 });
 

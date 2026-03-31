@@ -14,9 +14,14 @@ backend-node/.env
 backend-node/.env.*
 !backend-node/.env.example
 
-# 🗑️ Temporary and upload files
+# 🗑️ Temporary and upload files — server-side temp storage, never commit
 uploads/
-backend-node/uploads/
+# Ignore all files inside uploads/ subdirs but allow git to traverse the dirs,
+# so the !.gitkeep exceptions below can take effect.
+backend-node/uploads/*
+!backend-node/uploads/*/
+backend-node/uploads/*/*
+!backend-node/uploads/*/.gitkeep
 *.zip
 
 # 📋 Logs and OS files

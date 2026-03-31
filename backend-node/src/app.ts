@@ -24,7 +24,21 @@ dotenv.config();
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc:  ["'self'"],
+        scriptSrc:   ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com"],
+        frameSrc:    ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+        connectSrc:  ["'self'", "https://api.razorpay.com"],
+        imgSrc:      ["'self'", "data:", "https://lh3.googleusercontent.com"],
+        styleSrc:    ["'self'", "'unsafe-inline'"],
+        fontSrc:     ["'self'", "data:"],
+      },
+    },
+  })
+);
 
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes

@@ -3,6 +3,7 @@ import { Package, Search, ChevronRight, Clock, CheckCircle2, Truck, AlertCircle,
 import { PrototypingHeader } from './PrototypingHeader';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../../api/config';
+import { usePrototypingAuth } from '../../../context/PrototypingAuthContext';
 
 interface Order {
   id: string;
@@ -22,7 +23,7 @@ export default function PrototypingOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('prototypingUser') || 'null');
+  const { user, token } = usePrototypingAuth();
 
   useEffect(() => {
     if (!user) {
@@ -34,7 +35,7 @@ export default function PrototypingOrders() {
       try {
         const res = await fetch(`${API_BASE_URL}/prototyping-orders/my-orders`, {
           headers: {
-            'Authorization': `Bearer ${user.token}`
+            'Authorization': `Bearer ${token}`
           }
         });
         if (!res.ok) throw new Error('Failed to fetch orders');
@@ -147,10 +148,10 @@ export default function PrototypingOrders() {
                     </div>
                     
                     <div className="flex gap-2">
-                       <button 
+                         <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          window.open(`${API_BASE_URL}/prototyping-orders/${order.id}/download?type=SALES_ORDER&token=${user.token}`, '_blank');
+                          window.open(`${API_BASE_URL}/prototyping-orders/${order.id}/download?type=SALES_ORDER&token=${token}`, '_blank');
                         }}
                         className="p-2 bg-surface-100 hover:bg-surface-200 text-text-secondary rounded-lg border border-border-glass transition-all flex items-center gap-1.5 text-[10px] font-bold"
                         title="Download Sales Order"
@@ -160,7 +161,7 @@ export default function PrototypingOrders() {
                       <button 
                          onClick={(e) => {
                           e.stopPropagation();
-                          window.open(`${API_BASE_URL}/prototyping-orders/${order.id}/download?type=INVOICE&token=${user.token}`, '_blank');
+                          window.open(`${API_BASE_URL}/prototyping-orders/${order.id}/download?type=INVOICE&token=${token}`, '_blank');
                         }}
                         className="p-2 bg-surface-100 hover:bg-surface-200 text-[#00cc55] rounded-lg border border-[#00cc55]/20 transition-all flex items-center gap-1.5 text-[10px] font-bold"
                         title="Download Tax Invoice"
@@ -172,7 +173,7 @@ export default function PrototypingOrders() {
                           onClick={(e) => {
                             e.stopPropagation();
                             const fileId = (order as any).specifications.fileId;
-                            window.open(`${API_BASE_URL}/three-d-printing/download/${fileId}?token=${user.token}`, '_blank');
+                            window.open(`${API_BASE_URL}/three-d-printing/download/${fileId}?token=${token}`, '_blank');
                           }}
                           className="p-2 bg-[#00cc55]/10 hover:bg-[#00cc55]/20 text-[#00cc55] rounded-lg border border-[#00cc55]/20 transition-all flex items-center gap-1.5 text-[10px] font-bold"
                           title="Download 3D Model"

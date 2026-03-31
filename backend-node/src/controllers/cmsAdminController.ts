@@ -81,11 +81,33 @@ export const getAllOrders = async (req: Request, res: Response) => {
         orderBy: { createdAt: 'desc' }
       }),
       prisma.threeDOrder.findMany({
-        include: { user: true, file: { include: { config: true } } },
+        include: {
+          user: {
+            select: {
+              id:    true,
+              name:  true,
+              email: true,
+              phone: true,
+              role:  true
+            }
+          },
+          file: { include: { config: true } }
+        },
         orderBy: { createdAt: 'desc' }
       }),
       prisma.laserCuttingOrder.findMany({
-        include: { user: true, file: { include: { config: true } } },
+        include: {
+          user: {
+            select: {
+              id:    true,
+              name:  true,
+              email: true,
+              phone: true,
+              role:  true
+            }
+          },
+          file: { include: { config: true } }
+        },
         orderBy: { createdAt: 'desc' }
       })
     ]);

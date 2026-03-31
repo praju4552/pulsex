@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ShoppingCart, User as UserIcon, LogOut } from 'lucide-react';
 import { XPulseLogo } from '../XPulseIcon';
 import { ThemeToggle } from '../ThemeToggle';
+import { usePrototypingAuth } from '../../../context/PrototypingAuthContext';
 
 const NAV_LINKS = [
   { to: '/prototyping', label: 'Home' },
@@ -18,12 +19,13 @@ const NAV_LINKS = [
 export function PrototypingHeader() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const user = JSON.parse(localStorage.getItem('prototypingUser') || 'null');
+  const navigate = useNavigate();
+  const { user, logoutPrototyping } = usePrototypingAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('prototypingUser');
-    localStorage.removeItem('prototypingToken');
-    window.location.reload();
+    // Clear in-memory session — no localStorage to touch.
+    logoutPrototyping();
+    navigate('/prototyping/auth');
   };
 
   return (

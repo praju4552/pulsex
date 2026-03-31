@@ -3,6 +3,7 @@ import { PrototypingHeader } from './PrototypingHeader';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Mail, Phone, Package, Search, ChevronRight, Settings, Shield, Clock, Loader2, MapPin } from 'lucide-react';
 import { API_BASE_URL } from '../../../api/config';
+import { usePrototypingAuth } from '../../../context/PrototypingAuthContext';
 
 interface OrderSummary {
   id: string;
@@ -18,7 +19,8 @@ export default function PrototypingAccount() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('prototypingUser') || 'null'));
+  // Read user + token from in-memory context — no localStorage.
+  const { user, token, updatePrototypingUser } = usePrototypingAuth();
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -39,7 +41,6 @@ export default function PrototypingAccount() {
 
     const fetchLastOrder = async () => {
       try {
-        const token = JSON.parse(localStorage.getItem('prototypingUser') || '{}').token;
         const res = await fetch(`${API_BASE_URL}/prototyping-orders/user/${user.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -63,9 +64,6 @@ export default function PrototypingAccount() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const storedUser = JSON.parse(localStorage.getItem('prototypingUser') || '{}');
-      const token = storedUser.token;
-
       const res = await fetch(`${API_BASE_URL}/prototyping-auth/update-profile`, {
         method: 'POST',
         headers: { 
@@ -77,11 +75,9 @@ export default function PrototypingAccount() {
 
       if (!res.ok) throw new Error('Failed to update profile');
       const data = await res.json();
-      
-      // Preserve existing token when updating localStorage - critical!
-      const updatedUser = { ...data.user, token: storedUser.token };
-      localStorage.setItem('prototypingUser', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+
+      // Update in-memory context state — no localStorage write.
+      updatePrototypingUser(data.user);
       setIsEditing(false);
       alert('Profile updated successfully!');
     } catch (err) {

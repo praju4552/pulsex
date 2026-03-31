@@ -68,9 +68,8 @@ export default function ThreeDPrinting() {
       .catch(err => console.error('Failed to load pricing:', err));
   }, []);
 
-  // Auth User
-  const userStr = localStorage.getItem('prototypingUser');
-  const user = userStr ? JSON.parse(userStr) : null;
+  // Auth check is handled by PrototypingHeader (redirects to /auth if not logged in).
+  // No localStorage read needed here.
   
   // Configuration State
   const [config, setConfig] = useState({

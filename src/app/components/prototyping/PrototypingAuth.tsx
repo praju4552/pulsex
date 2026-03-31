@@ -5,6 +5,7 @@ import { XPulseLogo } from '../XPulseIcon';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import { API_BASE_URL } from '../../../api/config';
+import { usePrototypingAuth } from '../../../context/PrototypingAuthContext';
 
 export default function PrototypingAuth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -24,6 +25,7 @@ export default function PrototypingAuth() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const navigate = useNavigate();
+  const { loginPrototyping } = usePrototypingAuth();
 
   const handleToggle = () => {
     setIsLogin(!isLogin);
@@ -36,9 +38,9 @@ export default function PrototypingAuth() {
   };
 
   const handleLoginSuccess = (data: any) => {
-    localStorage.setItem('prototypingUser', JSON.stringify({ ...data.user, token: data.token }));
-    localStorage.setItem('prototypingToken', data.token); // keep for backwards compat
-    
+    // Store user + token in React memory only — no localStorage write.
+    loginPrototyping(data.user, data.token);
+
     if (data.user.role === 'SUPER_ADMIN') {
       sessionStorage.setItem('cms_token', data.token);
       sessionStorage.setItem('cms_admin', JSON.stringify(data.user));

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
+import { PrototypingAuthProvider } from '../context/PrototypingAuthContext';
 
 import { RegisterPage } from '../pages/RegisterPage';
 import { PlansPage } from '../pages/PlansPage';
@@ -42,21 +43,27 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/plans" element={<PlansPage />} />
 
-          {/* Prototyping Design Pages */}
-          <Route path="/prototyping" element={<PrototypingHome />} />
-          <Route path="/prototyping/3d-printing" element={<ThreeDPrinting />} />
-          <Route path="/prototyping/pcb-printing" element={<PCBPrinting />} />
-          <Route path="/prototyping/pcb-design" element={<PCBDesign />} />
-          <Route path="/prototyping/laser-cutting" element={<LaserCutting />} />
-          <Route path="/prototyping/sem-tem" element={<SEMTEM />} />
-          <Route path="/prototyping/project-dev" element={<ProjectDevelopment />} />
-          <Route path="/prototyping/product-testing" element={<ProductTesting />} />
-          <Route path="/prototyping/cart" element={<PrototypingCart />} />
-          <Route path="/prototyping/auth" element={<PrototypingAuth />} />
-          <Route path="/prototyping/orders" element={<PrototypingOrders />} />
-          <Route path="/prototyping/track" element={<PrototypingTrack />} />
-          <Route path="/prototyping/account" element={<PrototypingAccount />} />
-          <Route path="/prototyping/support" element={<ContactSupport />} />
+          {/* Prototyping Design Pages — wrapped in PrototypingAuthProvider for in-memory session */}
+          <Route path="/prototyping/*" element={
+            <PrototypingAuthProvider>
+              <Routes>
+                <Route index element={<PrototypingHome />} />
+                <Route path="3d-printing" element={<ThreeDPrinting />} />
+                <Route path="pcb-printing" element={<PCBPrinting />} />
+                <Route path="pcb-design" element={<PCBDesign />} />
+                <Route path="laser-cutting" element={<LaserCutting />} />
+                <Route path="sem-tem" element={<SEMTEM />} />
+                <Route path="project-dev" element={<ProjectDevelopment />} />
+                <Route path="product-testing" element={<ProductTesting />} />
+                <Route path="cart" element={<PrototypingCart />} />
+                <Route path="auth" element={<PrototypingAuth />} />
+                <Route path="orders" element={<PrototypingOrders />} />
+                <Route path="track" element={<PrototypingTrack />} />
+                <Route path="account" element={<PrototypingAccount />} />
+                <Route path="support" element={<ContactSupport />} />
+              </Routes>
+            </PrototypingAuthProvider>
+          } />
           <Route path="/payment/success" element={<PaymentSuccessPage />} />
 
           {/* CMS Admin */}

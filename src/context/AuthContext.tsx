@@ -24,29 +24,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Load from localStorage on mount
-        const storedToken = localStorage.getItem('authToken');
-        const storedUser = localStorage.getItem('authUser');
-
-        if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-        }
+        // Token is kept in memory only — no localStorage read.
+        // A future silent-refresh via httpOnly refreshToken cookie will rehydrate.
         setIsLoading(false);
     }, []);
 
     const login = (newToken: string, newUser: User) => {
         setToken(newToken);
         setUser(newUser);
-        localStorage.setItem('authToken', newToken);
-        localStorage.setItem('authUser', JSON.stringify(newUser));
+        // Token stored in React state only — no localStorage write.
     };
 
     const logout = () => {
         setToken(null);
         setUser(null);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('authUser');
+        // State is already cleared above — no localStorage to remove.
         window.location.href = '/';
     };
 

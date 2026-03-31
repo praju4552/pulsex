@@ -93,7 +93,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const refreshCredits = async () => {
         try {
-            const token = localStorage.getItem('authToken');
+            // authToken is now stored in React memory (AuthContext) not localStorage.
+            // TODO: thread the token down as a prop or via a shared signal when
+            // the silent-refresh / httpOnly-cookie flow is implemented.
+            // For now credits refresh is a no-op when the user is not logged in.
+            const token = null; // placeholder until token sharing is implemented
             if (!token) return;
 
             const res = await fetch(`${API_BASE_URL}/credits/balance`, {

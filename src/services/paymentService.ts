@@ -4,10 +4,9 @@ export const initiateRazorpayPayment = async (
   totalAmountInPaise: number,
   orderIds: string[],
   orderType: string,
+  token: string,
   userDetails: { name: string; email: string; phone: string }
 ): Promise<void> => {
-  const token = JSON.parse(localStorage.getItem('prototypingUser') || '{}').token;
-  
   const res = await fetch(`${API_BASE_URL}/payments/create-order`, {
     method: 'POST',
     headers: { 

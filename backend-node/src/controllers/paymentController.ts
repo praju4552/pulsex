@@ -42,6 +42,36 @@ export const verifyPayment = async (req: Request, res: Response) => {
   try {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderType, orderIds } = req.body;
 
+    // ── 1. Fetch payment record ───────────────────────────────────────────────
+    // Must exist in DB — created by initiatePayment before Razorpay modal opened.
+    const existingPayment = await prisma.payment.findUnique({
+      where: { razorpayOrderId }
+    });
+
+    if (!existingPayment) {
+      return res.status(404).json({ error: 'Payment record not found' });
+    }
+
+    // ── 2. Idempotency: skip if already processed ─────────────────────────────
+    // Handles network retries and double-click submissions safely.
+    if (existingPayment.status === 'PAID') {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment already processed'
+      });
+    }
+
+    // ── 3. Ownership: payment must belong to this user ────────────────────────
+    // Prevents an attacker from generating a valid HMAC for their own cheap
+    // Razorpay order and submitting it with another user's expensive orderIds.
+    const userId = (req as any).user?.id || (req as any).user?.userId;
+    if (existingPayment.userId !== userId) {
+      return res.status(403).json({
+        error: 'Forbidden: This payment does not belong to you'
+      });
+    }
+
+    // ── 4. Signature verification (HMAC-SHA256) ───────────────────────────────
     const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
     if (!isValid) {
       console.error(`Signature mismatch. Order: ${razorpayOrderId}, Secret length: ${process.env.RAZORPAY_KEY_SECRET?.length || 0}`);
@@ -64,12 +94,11 @@ export const verifyPayment = async (req: Request, res: Response) => {
       await prisma.laserCuttingOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
     }
 
-    // 📱 Step 11: WhatsApp Receipt trigger simulation (Matches auth logic)
+    // 📱 WhatsApp Receipt trigger simulation (Matches auth logic)
     try {
-        const paymentRecord = await prisma.payment.findUnique({ where: { razorpayOrderId } });
-        const targetUserId = paymentRecord?.userId;
-        if (targetUserId) {
-             const user = await prisma.prototypingUser.findUnique({ where: { id: targetUserId } });
+        // existingPayment.userId is already verified and in scope — no extra DB call needed.
+        if (userId) {
+             const user = await prisma.prototypingUser.findUnique({ where: { id: userId } });
              if (user && user.phone) {
                   console.log(`[WhatsApp Receipt] Send trigger initiated for ${user.phone} at ${new Date().toISOString()}`);
                   console.log(`Message: Hi ${user.name}, your Antigravity order has been confirmed! Payment ID: ${razorpayPaymentId}.`);

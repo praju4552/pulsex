@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PrototypingHeader } from './PrototypingHeader';
 import { Trash2, AlertCircle, CheckCircle2, Package, MapPin, Mail, Phone, User, ArrowRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { initiateRazorpayPayment } from '../../../services/paymentService';
-import { useEffect } from 'react';
 import { API_BASE_URL } from '../../../api/config';
+import { usePrototypingAuth } from '../../../context/PrototypingAuthContext';
 
 export default function PrototypingCart() {
   const navigate = useNavigate();
+  const { user, token } = usePrototypingAuth();
   const [items, setItems] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('prototyping_cart');
@@ -31,7 +32,6 @@ export default function PrototypingCart() {
   });
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('prototypingUser') || 'null');
     if (user) {
       const nameParts = user.name.split(' ');
       setShipping(prev => ({
@@ -86,7 +86,7 @@ export default function PrototypingCart() {
 
         if (item.type === '3D Printing') {
           const threeDPayload = {
-            userId: JSON.parse(localStorage.getItem('prototypingUser') || '{}').id || null,
+            userId: user?.id || null,
             fileId: item.fullSpec.fileId,
             config: item.fullSpec.config,
             price: item.pcbPrice,
@@ -113,7 +113,7 @@ export default function PrototypingCart() {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${JSON.parse(localStorage.getItem('prototypingUser') || '{}').token}`
+              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify(threeDPayload)
           });
@@ -141,14 +141,14 @@ export default function PrototypingCart() {
             shippingCost: item.shippingCost,
             pcbPrice: item.pcbPrice,
             totalAmount: Math.round(item.pcbPrice + item.shippingCost + (item.pcbPrice * 0.18)),
-            userId: JSON.parse(localStorage.getItem('prototypingUser') || '{}').id || null
+            userId: user?.id || null
           };
 
           const res = await fetch(`${API_BASE_URL}/prototyping-orders`, {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${JSON.parse(localStorage.getItem('prototypingUser') || '{}').token}`
+              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify(payload)
           });
@@ -170,9 +170,10 @@ export default function PrototypingCart() {
       // 🛒 Fire RazorPay Modal Payment 
       // Multiplied by 100 for Paise triggers
       await initiateRazorpayPayment(
-        Math.round(total * 100), 
+        Math.round(total * 100),
         createdOrderIds,
         'PROTOTYPING',
+        token || '',
         { 
           name: `${shipping.firstName} ${shipping.lastName}`, 
           email: shipping.email, 

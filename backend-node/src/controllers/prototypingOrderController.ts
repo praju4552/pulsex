@@ -291,6 +291,19 @@ export async function downloadPrototypingDocument(req: Request, res: Response) {
     const order = await prisma.prototypingOrder.findUnique({ where: { id } });
     if (!order) return res.status(404).json({ error: 'Order not found.' });
 
+    // ── IDOR Guard ────────────────────────────────────────────────────────────
+    // Verify the requesting user owns this order.
+    // SUPER_ADMIN may download any order for support / admin purposes.
+    const userId   = (req as any).user?.id || (req as any).user?.userId;
+    const userRole = (req as any).user?.role;
+
+    if (order.userId !== userId && userRole !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        error: 'Forbidden: You do not have access to this document.'
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const filename = type === 'SALES_ORDER' 
       ? `SalesOrder_${order.salesOrderId}.pdf` 
       : `Invoice_${order.invoiceId}.pdf`;

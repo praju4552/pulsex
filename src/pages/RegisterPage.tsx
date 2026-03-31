@@ -38,10 +38,8 @@ export function RegisterPage() {
                 if (!response.ok) throw new Error(data.error || 'Google auth failed via backend');
 
                 // Same logic as handleRegister success
+                // Token stored securely in AuthContext memory state via contextLogin()
                 contextLogin(data.token, data.user);
-                // Also store prototyping style for compat if needed
-                localStorage.setItem('prototypingUser', JSON.stringify({ ...data.user, token: data.token }));
-                localStorage.setItem('prototypingToken', data.token);
 
                 if (data.user.role === 'SUPER_ADMIN') {
                     navigate('/admin');
@@ -88,10 +86,8 @@ export function RegisterPage() {
                 throw new Error(data.error || 'Registration failed');
             }
 
-            // Auto-login
+            // Auto-login — token stored securely in AuthContext memory state
             contextLogin(data.token, data.user);
-            localStorage.setItem('prototypingUser', JSON.stringify({ ...data.user, token: data.token }));
-            localStorage.setItem('prototypingToken', data.token);
 
             if (data.user.role === 'SUPER_ADMIN') {
                 navigate('/admin');

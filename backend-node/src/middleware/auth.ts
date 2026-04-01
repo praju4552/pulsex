@@ -39,7 +39,7 @@ export const requireRole = (allowedRoles: string[]) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const SUPER_ADMIN_EMAILS = ['prajwalshetty4552@gmail.com', 'pulsewritexsolutions@gmail.com', 'pulsewritex@gmail.com'];
+        const SUPER_ADMIN_EMAILS = ['pulsewritex@gmail.com'];
 
         if (req.user.role === 'SUPER_ADMIN') {
             if (req.user.email && SUPER_ADMIN_EMAILS.includes(req.user.email)) {

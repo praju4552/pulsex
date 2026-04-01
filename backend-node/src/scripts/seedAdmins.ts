@@ -4,8 +4,7 @@ import prisma from '../db';
 const SALT_ROUNDS = 10;
 
 const ADMINS = [
-  { email: 'pulsewritexsolutions@gmail.com', password: 'EdmalaB@2025', name: 'Pulse X Admin' },
-  { email: 'pulsewritex@gmail.com', password: 'prototyping@2026', name: 'Pulse X Admin 2' },
+  { email: 'pulsewritex@gmail.com', password: 'EdmalaB@2025', name: 'Pulse X Admin' }
 ];
 
 async function seedAdmins() {

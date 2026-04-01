@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/auth';
 
 // Hardcoded CMS admin credentials
-const CMS_ADMIN_EMAIL = 'pulsewritexsolutions@gmail.com';
+const CMS_ADMIN_EMAIL = 'pulsewritex@gmail.com';
 const CMS_ADMIN_PASSWORD = 'EdmalaB@2025';
 
 export const cmsLogin = async (req: Request, res: Response) => {

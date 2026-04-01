@@ -39,16 +39,6 @@ export const requireRole = (allowedRoles: string[]) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const SUPER_ADMIN_EMAILS = ['pulsewritex@gmail.com'];
-
-        if (req.user.role === 'SUPER_ADMIN') {
-            if (req.user.email && SUPER_ADMIN_EMAILS.includes(req.user.email)) {
-                return next();
-            } else {
-                return res.status(403).json({ error: 'Access denied: invalid super admin account' });
-            }
-        }
-
         if (allowedRoles.includes(req.user.role)) {
             return next();
         }

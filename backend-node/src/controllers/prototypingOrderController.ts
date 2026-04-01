@@ -142,10 +142,9 @@ export async function listUserPrototypingOrders(req: Request, res: Response) {
     const requestingUser = req.user as any;
 
     let targetUserId = userId;
-    const SUPER_ADMIN_EMAILS = ['prajwalshetty4552@gmail.com', 'pulsewritexsolutions@gmail.com'];
-    
-    // Security: Force target ID to be the authenticated user's token ID unless superadmin
-    if (requestingUser?.role !== 'SUPER_ADMIN' || !SUPER_ADMIN_EMAILS.includes(requestingUser?.email)) {
+
+    // Security: Force target ID to be the authenticated user's token ID unless SUPER_ADMIN
+    if (requestingUser?.role !== 'SUPER_ADMIN') {
       if (!requestingUser?.id) {
         return res.status(401).json({ error: 'Invalid token payload missing user ID' });
       }

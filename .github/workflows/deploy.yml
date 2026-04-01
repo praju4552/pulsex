@@ -85,6 +85,25 @@ jobs:
             npm install --omit=dev 2>/dev/null || true
             ./node_modules/.bin/prisma generate || true
             chmod -R +x ./node_modules/.bin/ || true
+            echo "=== Seeding admin account ==="
+            ./node_modules/.bin/ts-node -e "
+              const { PrismaClient } = require('@prisma/client');
+              const bcrypt = require('bcryptjs');
+              const prisma = new PrismaClient();
+              async function seed() {
+                const hashed = await bcrypt.hash('EdmalaB@2025', 10);
+                const existing = await prisma.prototypingUser.findUnique({ where: { email: 'pulsewritex@gmail.com' } });
+                if (existing) {
+                  await prisma.prototypingUser.update({ where: { email: 'pulsewritex@gmail.com' }, data: { role: 'SUPER_ADMIN', password: hashed, name: 'Pulse X Admin' } });
+                  console.log('Admin updated to SUPER_ADMIN');
+                } else {
+                  await prisma.prototypingUser.create({ data: { email: 'pulsewritex@gmail.com', name: 'Pulse X Admin', password: hashed, role: 'SUPER_ADMIN' } });
+                  console.log('Admin created as SUPER_ADMIN');
+                }
+                await prisma.\$disconnect();
+              }
+              seed().catch(e => { console.error(e); process.exit(1); });
+            " 2>/dev/null || npx ts-node src/scripts/seedAdmins.ts 2>/dev/null || true
             cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
             npm install --omit=dev 2>/dev/null || true
             ./node_modules/.bin/prisma generate || true

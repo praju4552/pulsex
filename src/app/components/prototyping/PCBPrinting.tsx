@@ -61,95 +61,74 @@ interface HistoryItem {
   };
 }
 
-// ─── Pricing ────────────────────────────────────────────────────────────────────
+// ─── Pricing — Source: PulseX_Pricing_Matrix + gst(Last).xlsx ───────────────────
+// GST 18% is applied at display time. These values match the Excel exactly.
+
+const GST_RATE = 0.18;
 
 const DEFAULT_PCB_PRICING: any = {
-  baseFor5: 744,
-  setupFee: 600,
-  areaMult: 0.11624,
-  extraDrc: 75,
-  layerMult: { 1:1, 2:1, 4:2.8, 6:4.5, 8:7, 10:11, 12:16, 14:22, 16:30 },
-  materialMult: { 'Rogers': 3.5, 'Aluminum': 1.6, 'Copper Core': 2.0, 'Flex': 1.8, 'PTFE Teflon': 4.0 },
-  surcharges: {
-    'thickness_0.4mm': 640,
-    'thickness_0.6mm': 320,
-    'color_not_green': 1260,
-    'finish_ENIG': 400,
-    'finish_LeadFree HASL': 160
-  }
+  baseCost:    700,   // INR — Initial Base Cost / Setup Fee
+  costPerCm2:  12,    // INR per sq. cm of board area
+  layerMult:   { '1': 0.8, '2': 1.0, '4': 2.0, '6': 3.0, '8': 3.8, '10': 4.5, '12': 4.5, '14': 4.5, '16': 4.5 },
+  materialMult: { 'FR-4': 1.0, 'Flex': 2.5, 'Aluminum': 2.0, 'Copper Core': 2.2, 'Rogers': 3.5, 'PTFE Teflon': 4.0 },
+  thicknessMult: { '0.4mm': 1.30, '0.6mm': 1.20, '0.8mm': 1.10, '1.0mm': 1.05, '1.2mm': 1.02, '1.6mm': 1.00, '2.0mm': 1.20 },
+  colorMult: { 'Green': 1.0, 'Red': 1.1, 'Yellow': 1.1, 'Blue': 1.1, 'White': 1.1, 'Black': 1.1, 'Purple': 1.1, 'Matte Black': 1.2 },
+  finishMult: { 'HASL(with lead)': 1.0, 'LeadFree HASL': 1.1, 'ENIG': 1.4, 'OSP': 1.5, 'Hard Gold': 1.5, 'Silver': 1.5, 'Tin': 1.5 },
+  copperMult: { '1 oz': 1.0, '2 oz': 1.3, '3 oz': 1.6 },
+  advancedFees: { castellated: 300, goldFingers: 500, viaEpoxy: 400 },
 };
 
-function calcPrice(spec: PCBSpec, pricingConfig?: any): string {
+// Returns { preGst, gst, total } — all INR, GST 18% included in total.
+function calcPrice(spec: PCBSpec, pricingConfig?: any): { preGst: number; gst: number; total: number } {
   const p = pricingConfig || DEFAULT_PCB_PRICING;
 
-  // Determine area in sq mm
+  // 1. Board area in cm²
   let dimX = spec.dimX || 100;
   let dimY = spec.dimY || 100;
-  if (spec.dimUnit === 'inch') {
-    dimX *= 25.4;
-    dimY *= 25.4;
-  }
-  const areaInfo = dimX * dimY;
+  if (spec.dimUnit === 'inch') { dimX *= 2.54; dimY *= 2.54; }
+  const areaCm2 = (dimX / 10) * (dimY / 10);
 
-  // Base price for 5 pieces from matrix: 744 + 0.11624 * (L * W)
-  const baseFor5 = (p.baseFor5 || 744) + ((p.areaMult || 0.11624) * areaInfo);
-  
-  // Calculate per board and apply to selected quantity
-  const setupFee = p.setupFee || 600;
-  const perBoardMaterial = (baseFor5 - setupFee) / 5;
-  let baseCostInr = setupFee + (perBoardMaterial * spec.qty);
+  // 2. Base per-board cost
+  const baseCost  = Number(p.baseCost  ?? 700);
+  const perCm2    = Number(p.costPerCm2 ?? 12);
+  const perBoard  = baseCost + areaCm2 * perCm2;
 
-  // Extra charge for DRC/Panel settings (from image)
-  baseCostInr += (p.extraDrc || 75);
+  // 3. Multiplier chain
+  const lm  = p.layerMult    || {};
+  const mm  = p.materialMult || {};
+  const tm  = p.thicknessMult || {};
+  const cm  = p.colorMult    || {};
+  const fm  = p.finishMult   || {};
+  const cwm = p.copperMult   || {};
 
-  // Layer multiplier (approx)
-  const lm = p.layerMult || {};
-  baseCostInr *= lm[spec.layers] || 1;
+  const layerKey = String(spec.layers);
+  // 10+ layers all map to 4.5x per Excel
+  const layerMultVal     = Number(lm[layerKey]           ?? (spec.layers >= 10 ? 4.5 : 1.0));
+  const materialMultVal  = Number(mm[spec.baseMaterial]   ?? 1.0);
+  const thicknessMultVal = Number(tm[spec.thickness]      ?? 1.0);
+  const colorMultVal     = Number(cm[spec.color]          ?? 1.0);
+  const finishMultVal    = Number(fm[spec.finish]         ?? 1.0);
+  const copperMultVal    = Number(cwm[spec.copperWeight]  ?? 1.0);
 
-  // Material
-  const mm = p.materialMult || {};
-  if (mm[spec.baseMaterial]) {
-    baseCostInr *= mm[spec.baseMaterial];
-  }
+  const pricePerBoard = perBoard
+    * layerMultVal * materialMultVal * thicknessMultVal
+    * colorMultVal * finishMultVal   * copperMultVal;
 
-  const s = p.surcharges || {};
+  // 4. Qty
+  let subtotal = pricePerBoard * spec.qty;
 
-  // Thickness surcharge
-  if (spec.thickness === '0.4mm' && s['thickness_0.4mm']) baseCostInr += s['thickness_0.4mm'];
-  else if (spec.thickness === '0.6mm' && s['thickness_0.6mm']) baseCostInr += s['thickness_0.6mm'];
+  // 5. Advanced flat fees (once per order)
+  const af = p.advancedFees || {};
+  if (spec.castellated === 'Yes') subtotal += Number(af.castellated ?? 0);
+  if (spec.goldFingers  === 'Yes') subtotal += Number(af.goldFingers  ?? 0);
+  if (spec.viaCovering  === 'Epoxy Filled & Capped') subtotal += Number(af.viaEpoxy ?? 0);
 
-  // Color
-  if (spec.color !== 'Green' && s['color_not_green']) baseCostInr += s['color_not_green'];
+  // 6. GST 18%
+  const preGst = Math.max(Math.round(subtotal), 500);  // floor ₹500
+  const gst    = Math.round(preGst * GST_RATE);
+  const total  = preGst + gst;
 
-  // Surface finish
-  if (spec.finish === 'ENIG' && s['finish_ENIG']) baseCostInr += s['finish_ENIG'];
-  else if (spec.finish === 'LeadFree HASL' && s['finish_LeadFree HASL']) baseCostInr += s['finish_LeadFree HASL'];
-
-  // Copper weight
-  if (spec.copperWeight === '2 oz' && s['copper_2oz']) baseCostInr += s['copper_2oz'];
-  else if (spec.copperWeight === '2.5 oz' && s['copper_2.5oz']) baseCostInr += s['copper_2.5oz'];
-  else if (spec.copperWeight === '3.5 oz' && s['copper_3.5oz']) baseCostInr += s['copper_3.5oz'];
-  else if (spec.copperWeight === '4.5 oz' && s['copper_4.5oz']) baseCostInr += s['copper_4.5oz'];
-
-  // Via covering
-  if (spec.viaCovering === 'Plugged' && s['via_plugged']) baseCostInr += s['via_plugged'];
-  else if (spec.viaCovering === 'Epoxy Filled & Capped' && s['via_epoxy']) baseCostInr += s['via_epoxy'];
-
-  // Min via
-  if (spec.minViaHole === '0.2mm/(0.3/0.35mm)' && s['via_0.2mm']) baseCostInr += s['via_0.2mm'];
-
-  // Precision
-  if (spec.boardTolerance === '±0.1mm(Precision)' && s['precision_0.1mm']) baseCostInr += s['precision_0.1mm'];
-
-  // Edge / gold fingers
-  if (spec.goldFingers === 'Yes' && s['gold_fingers']) baseCostInr += s['gold_fingers'];
-  if (spec.castellated === 'Yes' && s['castellated']) baseCostInr += s['castellated'];
-
-  // Extra large board multiplier
-  if (areaInfo > 10000) baseCostInr *= 1 + (areaInfo - 10000) / 50000;
-
-  // Prevent price from going too low
-  return Math.max(Math.round(baseCostInr), 300).toString();
+  return { preGst, gst, total };
 }
 
 // ─── Shared sub-components ─────────────────────────────────────────────────────
@@ -305,9 +284,9 @@ export default function PCBPrinting() {
   const set = (k: keyof PCBSpec, v: any) => setSpec(s => ({ ...s, [k]: v }));
   const toggleSection = (s: keyof typeof openSections) => setOpenSections(o => ({ ...o, [s]: !o[s] }));
 
-  const price = calcPrice(spec, pcbPricing);
+  const priceResult = calcPrice(spec, pcbPricing);
   const shipCost = SHIP.find(s => s.id === ship)?.price || 0;
-  const total = (parseFloat(price) + shipCost).toFixed(0);
+  const grandTotal = priceResult.total + shipCost;
 
   const [parseStatus, setParseStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [parseResult, setParseResult] = useState<null | {
@@ -411,7 +390,7 @@ export default function PCBPrinting() {
       spec: `${spec.layers}L | ${spec.dimX}x${spec.dimY}mm | ${spec.color} | ${spec.finish}`,
       fullSpec: spec,
       qty: spec.qty,
-      pcbPrice: parseFloat(price),
+      pcbPrice: priceResult.total,
       shippingMethod: SHIP.find(s => s.id === ship)?.name || 'Standard',
       shippingCost: shipCost,
       image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop'
@@ -1026,14 +1005,23 @@ export default function PCBPrinting() {
                 <div className="flex justify-between"><span className="text-text-secondary">Material Type</span><span className="font-medium text-right max-w-[130px] leading-tight">{spec.materialType}</span></div>
                 <div className="flex justify-between"><span className="text-text-secondary">Copper Weight</span><span className="font-medium">{spec.copperWeight}</span></div>
                 <div className="flex justify-between"><span className="text-text-secondary">Via Covering</span><span className="font-medium">{spec.viaCovering}</span></div>
-                {spec.goldFingers === 'Yes' && <div className="flex justify-between text-amber-400"><span>Gold Fingers</span><span>+₹640</span></div>}
-                {spec.castellated === 'Yes' && <div className="flex justify-between text-amber-400"><span>Castellated Holes</span><span>+₹800</span></div>}
-                {spec.edgePlating === 'Yes' && <div className="flex justify-between text-amber-400"><span>Edge Plating</span><span>+₹960</span></div>}
-                {spec.inspectionReport !== 'No' && <div className="flex justify-between text-amber-400"><span>Inspection Report</span><span>+₹240</span></div>}
+                {spec.goldFingers === 'Yes' && <div className="flex justify-between text-amber-400 text-xs"><span>Edge Connector / Gold Fingers</span><span>+₹500</span></div>}
+                {spec.castellated === 'Yes' && <div className="flex justify-between text-amber-400 text-xs"><span>Castellated Holes</span><span>+₹300</span></div>}
+                {spec.viaCovering === 'Epoxy Filled & Capped' && <div className="flex justify-between text-amber-400 text-xs"><span>Via Epoxy Fill</span><span>+₹400</span></div>}
 
-                <div className="border-t border-border-glass pt-3 flex justify-between font-bold">
-                  <span className="text-text-secondary">PCB Price</span>
-                  <span className="text-accent-primary text-base">₹{price}</span>
+                <div className="border-t border-border-glass pt-3 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-secondary">PCB (excl. GST)</span>
+                    <span className="text-text-primary font-semibold">₹{priceResult.preGst.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-muted">GST @ 18%</span>
+                    <span className="text-text-muted">₹{priceResult.gst.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between font-bold">
+                    <span className="text-text-secondary">PCB Total</span>
+                    <span className="text-accent-primary">₹{priceResult.total.toLocaleString('en-IN')}</span>
+                  </div>
                 </div>
 
                 <div className="pt-2">
@@ -1053,9 +1041,12 @@ export default function PCBPrinting() {
                 </div>
 
                 <div className="border-t border-border-glass pt-3 flex justify-between items-end">
-                  <span className="font-bold text-text-primary">Total</span>
+                  <div>
+                    <span className="font-bold text-text-primary block">Grand Total</span>
+                    <span className="text-[10px] text-text-muted">incl. GST + Shipping</span>
+                  </div>
                   <div className="text-right">
-                    <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-accent-primary to-emerald-400">₹{total}</span>
+                    <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-accent-primary to-emerald-400">₹{grandTotal.toLocaleString('en-IN')}</span>
                     <p className="text-xs text-text-muted font-bold">INR</p>
                   </div>
                 </div>

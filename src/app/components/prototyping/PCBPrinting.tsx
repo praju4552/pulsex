@@ -202,13 +202,13 @@ const COLORS_PCB = [
 ];
 
 const SHIP = [
-  { id: 'dhl', name: 'DHL Express', days: '3–5', price: 1480 },
-  { id: 'fedex', name: 'FedEx Intl', days: '5–8', price: 1136 },
-  { id: 'std', name: 'Standard Post', days: '15–25', price: 280 },
-  { id: 'eco', name: 'Economy', days: '25–45', price: 96 },
+  { id: 'dhl', name: 'DHL Express', days: '7-8 days', price: 150 },
+  { id: 'fedex', name: 'FedEx Intl', days: '7-8 days', price: 150 },
+  { id: 'std', name: 'Standard Post', days: '7-8 days', price: 120 },
+  { id: 'eco', name: 'Economy', days: '10 days', price: 90 },
 ];
 
-const BASE_MATERIALS = ['FR-4', 'Flex', 'Aluminum', 'Copper Core', 'Rogers', 'PTFE Teflon'];
+const BASE_MATERIALS = ['FR-4', 'Proto FR-4', 'Flex', 'Aluminum', 'Copper Core', 'Rogers', 'PTFE Teflon'];
 const LAYER_OPTS = [1, 2, 4, 6, 8, 10, 12, 14, 16];
 const QTY_OPTS = [5, 10, 15, 20, 25, 30, 50, 75, 100, 200, 300, 500, 1000];
 
@@ -281,7 +281,14 @@ export default function PCBPrinting() {
     remark: '',
   });
 
-  const set = (k: keyof PCBSpec, v: any) => setSpec(s => ({ ...s, [k]: v }));
+  const set = (k: keyof PCBSpec, v: any) => setSpec(s => {
+    const newSpec = { ...s, [k]: v };
+    if (k === 'baseMaterial' && v === 'Proto FR-4') {
+      if (newSpec.layers > 2) newSpec.layers = 2;
+      if (newSpec.silkscreen !== 'None') newSpec.silkscreen = 'None';
+    }
+    return newSpec;
+  });
   const toggleSection = (s: keyof typeof openSections) => setOpenSections(o => ({ ...o, [s]: !o[s] }));
 
   const priceResult = calcPrice(spec, pcbPricing);
@@ -387,7 +394,7 @@ export default function PCBPrinting() {
     const cartItem = {
       id: Date.now().toString(),
       type: 'PCB Printing',
-      spec: `${spec.layers}L | ${spec.dimX}x${spec.dimY}mm | ${spec.color} | ${spec.finish}`,
+      spec: `${spec.layers}L | ${spec.dimX}x${spec.dimY}mm | ${spec.baseMaterial} | ${spec.finish}`,
       fullSpec: spec,
       qty: spec.qty,
       pcbPrice: priceResult.total,
@@ -698,8 +705,9 @@ export default function PCBPrinting() {
                   {LAYER_OPTS.map(l => (
                     <button
                       key={l}
+                      disabled={spec.baseMaterial === 'Proto FR-4' && l > 2}
                       onClick={() => set('layers', l)}
-                      className={`w-10 h-9 rounded-lg border text-xs font-bold transition-all ${spec.layers === l ? 'border-accent-primary bg-accent-primary/15 text-[#008800] dark:text-accent-primary' : 'border-border-glass text-text-secondary hover:border-accent-primary/40 hover:text-text-primary'} ${l >= 6 ? 'text-amber-500 border-amber-500/20 hover:border-amber-500/40 dark:text-amber-400' : ''}`}
+                      className={`w-10 h-9 rounded-lg border text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${spec.layers === l ? 'border-accent-primary bg-accent-primary/15 text-[#008800] dark:text-accent-primary' : 'border-border-glass text-text-secondary hover:border-accent-primary/40 hover:text-text-primary'} ${l >= 6 ? 'text-amber-500 border-amber-500/20 hover:border-amber-500/40 dark:text-amber-400' : ''}`}
                     >
                       {l}
                     </button>
@@ -746,13 +754,6 @@ export default function PCBPrinting() {
                 </select>
               </FieldRow>
 
-              <FieldRow label="Product Type" tooltip="Intended use of the PCB affects regulatory handling.">
-                <BtnGroup
-                  opts={['Industrial/Consumer electronics', 'Aerospace', 'Medical']}
-                  value={spec.productType}
-                  onChange={v => set('productType', v)}
-                />
-              </FieldRow>
             </div>
 
             {/* ── PCB SPECIFICATIONS ── */}
@@ -790,20 +791,13 @@ export default function PCBPrinting() {
                     />
                   </FieldRow>
 
-                  <FieldRow label="PCB Color" tooltip="Color of the solder mask.">
-                    <div className="flex flex-wrap gap-2">
-                      {COLORS_PCB.map(c => (
-                        <button key={c.val} onClick={() => set('color', c.val)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${spec.color === c.val ? 'border-accent-primary bg-accent-primary/10 text-text-primary' : 'border-border-glass text-text-secondary hover:border-accent-primary/40'}`}>
-                          <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.hex }} />
-                          {c.val}
-                        </button>
-                      ))}
-                    </div>
-                  </FieldRow>
-
                   <FieldRow label="Silkscreen" tooltip="Color of the silkscreen text printed on the PCB.">
-                    <BtnGroup opts={['White', 'Black']} value={spec.silkscreen} onChange={v => set('silkscreen', v)} />
+                    <BtnGroup 
+                      opts={['None', 'White', 'Black']} 
+                      value={spec.silkscreen} 
+                      onChange={v => set('silkscreen', v)}
+                      disabledOpts={spec.baseMaterial === 'Proto FR-4' ? ['White', 'Black'] : []}
+                    />
                   </FieldRow>
 
                   <FieldRow label="Material Type" tooltip="Specific grade of base material (Tg rating affects thermal resistance).">

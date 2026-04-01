@@ -172,26 +172,44 @@ export default function ThreeDPrinting() {
   const calculatePrice = () => {
     if (!metadata) return;
 
-    const selectedMaterial = materials.find(m => m.id === config.material)!;
-    const selectedQuality = qualities.find(q => q.id === config.quality)!;
-    const selectedFinish = finishes.find(f => f.id === config.finish)!;
+    const selectedMaterial = materials.find(m => m.id === config.material) || materials[0];
+    const selectedQuality = qualities.find(q => q.id === config.quality) || qualities[0];
+    const selectedFinish = finishes.find(f => f.id === config.finish) || finishes[0];
+
+    if (!selectedMaterial || !selectedQuality || !selectedFinish) return;
 
     // Simple scale-aware volume (scale is linear, volume is cubic)
     const scaledVolume = metadata.volume * Math.pow(config.scale, 3) / 1000; // cm3
-    
-    // Material Cost: Volume * Density * CostPerGram * Infill%
-    const materialCost = (scaledVolume * selectedMaterial.density * selectedMaterial.baseCost * (config.infill / 100)) * selectedQuality.costMult;
-    
-    // Processing / Machine Cost: Based on time and quality
-    const baseProcessing = 250; // Fixed minimum processing fee
 
-    const total = (materialCost + baseProcessing + selectedFinish.cost) * config.quantity;
+    // Support both pricing models:
+    // Backend model: costMult (multiplier), no density/baseCost
+    // Frontend fallback model: density + baseCost
+    const materialMult = (selectedMaterial as any).costMult ?? 1.0;
+    const density = (selectedMaterial as any).density ?? 1.24;
+    const baseCostPerG = (selectedMaterial as any).baseCost ?? 0;
+    const qualityMult = selectedQuality.costMult ?? 1.0;
+    const finishCost = selectedFinish.cost ?? 0;
+
+    let materialCost: number;
+    if (baseCostPerG > 0) {
+      // Frontend fallback model: Volume * Density * CostPerGram * Infill%
+      materialCost = (scaledVolume * density * baseCostPerG * (config.infill / 100)) * qualityMult;
+    } else {
+      // Backend multiplier model: Volume * baseCostPerCm3 * materialMult * qualityMult * infillFactor
+      const costPerCm3 = 5; // default from backend
+      materialCost = scaledVolume * costPerCm3 * materialMult * qualityMult * (config.infill / 100);
+    }
+
+    // Processing / Machine Cost: Fixed minimum processing fee
+    const baseProcessing = 250;
+
+    const total = (materialCost + baseProcessing + finishCost) * (config.quantity || 1);
 
     setPrice({
       base: baseProcessing,
-      material: materialCost,
-      processing: selectedFinish.cost,
-      total: Math.round(total),
+      material: Math.round(materialCost),
+      processing: finishCost,
+      total: Math.max(Math.round(total), 0),
     });
   };
 

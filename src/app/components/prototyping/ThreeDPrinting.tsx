@@ -1031,9 +1031,15 @@ function ThreeDViewer({
         group.add(sprite);
     };
 
+    // Bottom / Left / Front measurements
     createDimLine(new THREE.Vector3(-halfX, -halfY - offset, halfZ), new THREE.Vector3(halfX, -halfY - offset, halfZ), `X = ${(size.x).toFixed(1)} mm`);
     createDimLine(new THREE.Vector3(-halfX - offset, -halfY, halfZ), new THREE.Vector3(-halfX - offset, halfY, halfZ), `Y = ${(size.y).toFixed(1)} mm`);
     createDimLine(new THREE.Vector3(halfX + offset, -halfY, -halfZ), new THREE.Vector3(halfX + offset, -halfY, halfZ), `Z = ${(size.z).toFixed(1)} mm`);
+
+    // Top / Right / Front measurements (mirrored to be visible above the model)
+    createDimLine(new THREE.Vector3(-halfX, halfY + offset, halfZ), new THREE.Vector3(halfX, halfY + offset, halfZ), `X = ${(size.x).toFixed(1)} mm`);
+    createDimLine(new THREE.Vector3(halfX + offset, -halfY, halfZ), new THREE.Vector3(halfX + offset, halfY, halfZ), `Y = ${(size.y).toFixed(1)} mm`);
+    createDimLine(new THREE.Vector3(-halfX - offset, halfY + offset, -halfZ), new THREE.Vector3(-halfX - offset, halfY + offset, halfZ), `Z = ${(size.z).toFixed(1)} mm`);
   };
 
   return (

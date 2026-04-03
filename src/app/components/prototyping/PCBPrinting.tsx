@@ -234,7 +234,7 @@ export default function PCBPrinting() {
   const [ship, setShip] = useState('dhl');
   const [showHistory, setShowHistory] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [openSections, setOpenSections] = useState({ spec: true, highspec: true, advanced: false });
+  const [openSections, setOpenSections] = useState({ spec: true, highspec: false, advanced: false });
   const [history, setHistory] = useState<HistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('pcb_history');

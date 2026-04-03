@@ -299,7 +299,7 @@ export default function PCBPrinting() {
 
   const priceResult = calcPrice(spec, pcbPricing);
   const shipCost = SHIP.find(s => s.id === ship)?.price || 0;
-  const grandTotal = priceResult.total + shipCost;
+  const grandTotal = priceResult.preGst + shipCost;
 
   const [parseStatus, setParseStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [parseResult, setParseResult] = useState<null | {
@@ -403,7 +403,7 @@ export default function PCBPrinting() {
       spec: `${spec.layers}L | ${spec.dimX}x${spec.dimY}mm | ${spec.baseMaterial} | ${spec.finish}`,
       fullSpec: spec,
       qty: spec.qty,
-      pcbPrice: priceResult.total,
+      pcbPrice: priceResult.preGst,
       shippingMethod: SHIP.find(s => s.id === ship)?.name || 'Standard',
       shippingCost: shipCost,
       image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop'
@@ -1010,17 +1010,9 @@ export default function PCBPrinting() {
                 {spec.viaCovering === 'Epoxy Filled & Capped' && <div className="flex justify-between text-amber-400 text-xs"><span>Via Epoxy Fill</span><span>+₹400</span></div>}
 
                 <div className="border-t border-border-glass pt-3 space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-secondary">PCB (excl. GST)</span>
-                    <span className="text-text-primary font-semibold">₹{priceResult.preGst.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">GST @ 18%</span>
-                    <span className="text-text-muted">₹{priceResult.gst.toLocaleString('en-IN')}</span>
-                  </div>
                   <div className="flex justify-between font-bold">
-                    <span className="text-text-secondary">PCB Total</span>
-                    <span className="text-accent-primary">₹{priceResult.total.toLocaleString('en-IN')}</span>
+                    <span className="text-text-secondary">PCB Total (excl. GST)</span>
+                    <span className="text-accent-primary">₹{priceResult.preGst.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
 
@@ -1043,7 +1035,7 @@ export default function PCBPrinting() {
                 <div className="border-t border-border-glass pt-3 flex justify-between items-end">
                   <div>
                     <span className="font-bold text-text-primary block">Grand Total</span>
-                    <span className="text-[10px] text-text-muted">incl. GST + Shipping</span>
+                    <span className="text-[10px] text-text-muted">incl. Shipping (GST added at checkout)</span>
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-accent-primary to-emerald-400">₹{grandTotal.toLocaleString('en-IN')}</span>

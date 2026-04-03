@@ -96,9 +96,9 @@ export default function OrderDetailModal({ order, onClose, onUpdated }: Props) {
             <div className="bg-[#0a0a0a] rounded-xl border border-[#222] p-4 space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="font-bold">{order.serviceType}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Summary</span><span className="font-semibold text-right max-w-[60%]">{order.specSummary}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Item Price</span><span className="font-bold">₹{(order.pcbPrice / 100).toFixed(0)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Shipping</span><span className="font-bold">₹{(order.shippingCost / 100).toFixed(0)}</span></div>
-              <div className="flex justify-between border-t border-[#222] pt-2"><span className="text-gray-500">Total</span><span className="font-black text-[#00cc55]">₹{(order.totalAmount / 100).toFixed(0)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Item Price</span><span className="font-bold">₹{order.pcbPrice?.toFixed(0) || 0}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Shipping</span><span className="font-bold">₹{order.shippingCost?.toFixed(0) || 0}</span></div>
+              <div className="flex justify-between border-t border-[#222] pt-2"><span className="text-gray-500">Total</span><span className="font-black text-[#00cc55]">₹{order.totalAmount?.toFixed(0) || 0}</span></div>
             </div>
             {Object.keys(specs).length > 0 && (
               <details className="mt-3">

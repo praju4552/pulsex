@@ -129,7 +129,7 @@ export default function PrototypingOrders() {
                     <div className="flex items-center gap-4 text-xs text-zinc-600">
                       <span>{new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       <span className="w-1 h-1 bg-zinc-800 rounded-full" />
-                      <span>Total: ₹{order.totalAmount / 100}</span>
+                      <span>Total: ₹{order.totalAmount}</span>
                       {order.projectId && (
                         <>
                           <span className="w-1 h-1 bg-zinc-800 rounded-full" />

@@ -1,0 +1,376 @@
+﻿{
+  "sheet": "Pricing Strategy",
+  "rows": [
+    [
+      "Service",
+      "Category",
+      "Parameter / Option",
+      "Type (Base/Multiplier/Addition)",
+      "Client Defined Price (INR)"
+    ],
+    [
+      "PCB Printing",
+      "Base Setup",
+      "Initial Base Cost (Setup Fee)",
+      "Base Cost",
+      150
+    ],
+    [
+      "PCB Printing",
+      "Dimensions",
+      "Cost per Square Centimeter (sq. cm)",
+      "Multiplier",
+      2.5
+    ],
+    [
+      "PCB Printing",
+      "Material",
+      "FR-4",
+      "Multiplier (e.g. 1.0x)",
+      1
+    ],
+    [
+      "PCB Printing",
+      "Material",
+      "Flex",
+      "Multiplier",
+      2.5
+    ],
+    [
+      "PCB Printing",
+      "Material",
+      "Aluminum",
+      "Multiplier",
+      2
+    ],
+    [
+      "PCB Printing",
+      "Material",
+      "Copper Core",
+      "Multiplier",
+      2.2
+    ],
+    [
+      "PCB Printing",
+      "Material",
+      "Rogers",
+      "Multiplier",
+      3.5
+    ],
+    [
+      "PCB Printing",
+      "Material",
+      "PTFE Teflon",
+      "Multiplier",
+      4
+    ],
+    [
+      "PCB Printing",
+      "Layers",
+      "1 Layer",
+      "Multiplier",
+      0.8
+    ],
+    [
+      "PCB Printing",
+      "Layers",
+      "2 Layers",
+      "Multiplier",
+      1
+    ],
+    [
+      "PCB Printing",
+      "Layers",
+      "4 Layers",
+      "Multiplier",
+      1.8
+    ],
+    [
+      "PCB Printing",
+      "Layers",
+      "6 Layers",
+      "Multiplier",
+      2.5
+    ],
+    [
+      "PCB Printing",
+      "Layers",
+      "8 Layers",
+      "Multiplier",
+      3.2
+    ],
+    [
+      "PCB Printing",
+      "Layers",
+      "10+ Layers",
+      "Multiplier",
+      4
+    ],
+    [
+      "PCB Printing",
+      "Thickness",
+      "0.4 mm",
+      "Multiplier",
+      1.3
+    ],
+    [
+      "PCB Printing",
+      "Thickness",
+      "0.6 mm",
+      "Multiplier",
+      1.2
+    ],
+    [
+      "PCB Printing",
+      "Thickness",
+      "0.8 mm",
+      "Multiplier",
+      1.1
+    ],
+    [
+      "PCB Printing",
+      "Thickness",
+      "1.0 mm",
+      "Multiplier",
+      1.05
+    ],
+    [
+      "PCB Printing",
+      "Thickness",
+      "1.2 mm",
+      "Multiplier",
+      1.02
+    ],
+    [
+      "PCB Printing",
+      "Thickness",
+      "1.6 mm",
+      "Multiplier (often 1.0x)",
+      1
+    ],
+    [
+      "PCB Printing",
+      "Thickness",
+      "2.0 mm",
+      "Multiplier",
+      1.2
+    ],
+    [
+      "PCB Printing",
+      "Solder Mask Color",
+      "Green",
+      "Multiplier (often 1.0x)",
+      1
+    ],
+    [
+      "PCB Printing",
+      "Solder Mask Color",
+      "Red, Yellow, Blue, White, Black",
+      "Multiplier",
+      1.1
+    ],
+    [
+      "PCB Printing",
+      "Solder Mask Color",
+      "Matte Black",
+      "Multiplier",
+      1.2
+    ],
+    [
+      "PCB Printing",
+      "Surface Finish",
+      "HASL(with lead)",
+      "Multiplier (often 1.0x)",
+      1
+    ],
+    [
+      "PCB Printing",
+      "Surface Finish",
+      "LeadFree HASL",
+      "Multiplier",
+      1.1
+    ],
+    [
+      "PCB Printing",
+      "Surface Finish",
+      "ENIG",
+      "Multiplier",
+      1.4
+    ],
+    [
+      "PCB Printing",
+      "Surface Finish",
+      "OSP, Hard Gold, Silver, Tin",
+      "Multiplier",
+      1.5
+    ],
+    [
+      "PCB Printing",
+      "Copper Weight",
+      "1 oz",
+      "Multiplier (often 1.0x)",
+      1
+    ],
+    [
+      "PCB Printing",
+      "Copper Weight",
+      "2 oz",
+      "Multiplier",
+      1.3
+    ],
+    [
+      "PCB Printing",
+      "Copper Weight",
+      "3 oz",
+      "Multiplier",
+      1.6
+    ],
+    [
+      "PCB Printing",
+      "Advanced",
+      "Castellated Holes (Yes/No)",
+      "Additional Flat Fee",
+      300
+    ],
+    [
+      "PCB Printing",
+      "Advanced",
+      "Edge Connector (Gold Fingers)",
+      "Additional Flat Fee",
+      500
+    ],
+    [
+      "PCB Printing",
+      "Advanced",
+      "Via Process (Epoxy Filled)",
+      "Additional Flat Fee",
+      400
+    ],
+    [
+      "3D Printing",
+      "Base Setup",
+      "Initial Setup / Printer Warmup",
+      "Base Cost",
+      50
+    ],
+    [
+      "3D Printing",
+      "Volume",
+      "Cost per Cubic Centimeter (cm3)",
+      "Multiplier",
+      5
+    ],
+    [
+      "3D Printing",
+      "Material",
+      "PLA",
+      "Multiplier (often 1.0x)",
+      1
+    ],
+    [
+      "3D Printing",
+      "Material",
+      "ABS",
+      "Multiplier",
+      1.2
+    ],
+    [
+      "3D Printing",
+      "Material",
+      "PETG",
+      "Multiplier",
+      1.3
+    ],
+    [
+      "3D Printing",
+      "Material",
+      "TPU",
+      "Multiplier",
+      1.5
+    ],
+    [
+      "3D Printing",
+      "Material",
+      "Nylon",
+      "Multiplier",
+      1.6
+    ],
+    [
+      "3D Printing",
+      "Material",
+      "Resin (SLA)",
+      "Multiplier",
+      2
+    ],
+    [
+      "3D Printing",
+      "Print Quality",
+      "Draft (0.3mm layer height)",
+      "Multiplier (e.g. 0.8x)",
+      0.8
+    ],
+    [
+      "3D Printing",
+      "Print Quality",
+      "Standard (0.2mm layer height)",
+      "Multiplier (e.g. 1.0x)",
+      1
+    ],
+    [
+      "3D Printing",
+      "Print Quality",
+      "High (0.12mm layer height)",
+      "Multiplier (e.g. 1.5x)",
+      1.5
+    ],
+    [
+      "3D Printing",
+      "Print Quality",
+      "Ultra (0.08mm layer height)",
+      "Multiplier (e.g. 2.0x)",
+      2
+    ],
+    [
+      "3D Printing",
+      "Infill",
+      "Cost multiplier per 10% step above 20%",
+      "Multiplier",
+      1.05
+    ],
+    [
+      "3D Printing",
+      "Post-Processing",
+      "Standard (Raw)",
+      "Additional Flat Fee (0 INR)",
+      0
+    ],
+    [
+      "3D Printing",
+      "Post-Processing",
+      "Sanded",
+      "Additional Flat Fee",
+      100
+    ],
+    [
+      "3D Printing",
+      "Post-Processing",
+      "Primed",
+      "Additional Flat Fee",
+      200
+    ],
+    [
+      "3D Printing",
+      "Post-Processing",
+      "Painted",
+      "Additional Flat Fee",
+      400
+    ],
+    [
+      "3D Printing",
+      "Color",
+      "Custom Color Requirement",
+      "Additional Flat Fee",
+      100
+    ]
+  ]
+}

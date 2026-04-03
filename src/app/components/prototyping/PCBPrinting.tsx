@@ -73,7 +73,7 @@ const DEFAULT_PCB_PRICING: any = {
   materialMult: { 'FR-4': 1.0, 'Flex': 2.5, 'Aluminum': 2.0, 'Copper Core': 2.2, 'Rogers': 3.5, 'PTFE Teflon': 4.0 },
   thicknessMult: { '0.4mm': 1.30, '0.6mm': 1.20, '0.8mm': 1.10, '1.0mm': 1.05, '1.2mm': 1.02, '1.6mm': 1.00, '2.0mm': 1.20 },
   colorMult: { 'Green': 1.0, 'Red': 1.1, 'Yellow': 1.1, 'Blue': 1.1, 'White': 1.1, 'Black': 1.1, 'Purple': 1.1, 'Matte Black': 1.2 },
-  finishMult: { 'HASL(with lead)': 1.0, 'LeadFree HASL': 1.1, 'ENIG': 1.4, 'OSP': 1.5, 'Hard Gold': 1.5, 'Silver': 1.5, 'Tin': 1.5 },
+  finishMult: { 'HASL': 1.0, 'HASL(with lead)': 1.0, 'LeadFree HASL': 1.1, 'ENIG': 1.4, 'OSP': 1.5, 'Hard Gold': 1.5, 'Silver': 1.5, 'Tin': 1.5 },
   copperMult: { '1 oz': 1.0, '2 oz': 1.3, '3 oz': 1.6 },
   advancedFees: { castellated: 300, goldFingers: 500, viaEpoxy: 400 },
 };
@@ -210,7 +210,7 @@ const SHIP = [
 
 const BASE_MATERIALS = ['FR-4', 'Proto FR-4', 'Flex', 'Aluminum', 'Copper Core', 'Rogers', 'PTFE Teflon'];
 const LAYER_OPTS = [1, 2, 4, 6, 8, 10, 12, 14, 16];
-const QTY_OPTS = [5, 10, 15, 20, 25, 30, 50, 75, 100, 200, 300, 500, 1000];
+const QTY_OPTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 // ─── Main Component ──────────────────────────────────────────────────────────────
 
@@ -250,15 +250,15 @@ export default function PCBPrinting() {
     dimX: 100,
     dimY: 100,
     dimUnit: 'mm',
-    qty: 5,
+    qty: 1,
     productType: 'Industrial/Consumer electronics',
     differentDesign: 1,
     deliveryFormat: 'Single PCB',
     thickness: '1.6mm',
     color: 'Green',
     silkscreen: 'White',
-    materialType: 'FR4 TG135',
-    finish: 'HASL(with lead)',
+    materialType: 'FR-4 TG 135',
+    finish: 'HASL',
     copperWeight: '1 oz',
     viaCovering: 'Tented',
     viaPlating: 'Not Specified',
@@ -284,8 +284,14 @@ export default function PCBPrinting() {
   const set = (k: keyof PCBSpec, v: any) => setSpec(s => {
     const newSpec = { ...s, [k]: v };
     if (k === 'baseMaterial' && v === 'Proto FR-4') {
-      if (newSpec.layers > 2) newSpec.layers = 2;
+      newSpec.layers = 1;
+      newSpec.dimX = Math.min(newSpec.dimX, 100);
+      newSpec.dimY = Math.min(newSpec.dimY, 100);
       if (newSpec.silkscreen !== 'None') newSpec.silkscreen = 'None';
+    }
+    if (newSpec.baseMaterial === 'Proto FR-4') {
+      if (k === 'dimX' && newSpec.dimX > 100) newSpec.dimX = 100;
+      if (k === 'dimY' && newSpec.dimY > 100) newSpec.dimY = 100;
     }
     return newSpec;
   });
@@ -705,7 +711,7 @@ export default function PCBPrinting() {
                   {LAYER_OPTS.map(l => (
                     <button
                       key={l}
-                      disabled={spec.baseMaterial === 'Proto FR-4' && l > 2}
+                      disabled={spec.baseMaterial === 'Proto FR-4' && l !== 1}
                       onClick={() => set('layers', l)}
                       className={`w-10 h-9 rounded-lg border text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${spec.layers === l ? 'border-accent-primary bg-accent-primary/15 text-[#008800] dark:text-accent-primary' : 'border-border-glass text-text-secondary hover:border-accent-primary/40 hover:text-text-primary'} ${l >= 6 ? 'text-amber-500 border-amber-500/20 hover:border-amber-500/40 dark:text-amber-400' : ''}`}
                     >
@@ -785,7 +791,7 @@ export default function PCBPrinting() {
 
                   <FieldRow label="PCB Thickness" tooltip="Thickness of the PCB including all layers.">
                     <BtnGroup
-                      opts={['0.4mm','0.6mm','0.8mm','1.0mm','1.2mm','1.6mm','2.0mm']}
+                      opts={['1.2mm','1.6mm','2.0mm']}
                       value={spec.thickness}
                       onChange={v => set('thickness', v)}
                     />
@@ -802,7 +808,7 @@ export default function PCBPrinting() {
 
                   <FieldRow label="Material Type" tooltip="Specific grade of base material (Tg rating affects thermal resistance).">
                     <BtnGroup
-                      opts={['FR4 TG135','FR4 TG155','Nan Ya NP-140F','Nan Ya NP-155F','KB-6165 - TG155','S1000H TG155','Shengyi S1000-2M - TG170']}
+                      opts={['FR-4 TG 135']}
                       value={spec.materialType}
                       onChange={v => set('materialType', v)}
                     />
@@ -810,7 +816,7 @@ export default function PCBPrinting() {
 
                   <FieldRow label="Surface Finish" tooltip="Surface protection and solderability coating.">
                     <BtnGroup
-                      opts={['HASL(with lead)','LeadFree HASL','ENIG']}
+                      opts={['HASL']}
                       value={spec.finish}
                       onChange={v => set('finish', v)}
                     />

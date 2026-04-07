@@ -76,30 +76,35 @@ jobs:
 
       # Step 3: Install deps, seed admin, verify auth middleware, restart
       - name: Install deps, seed admin, verify and restart
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
           command_timeout: 15m
-          sync: true
           script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
+            export CI=1
             echo "=== Installing dependencies (primary) ==="
             cd ~/domains/pulsewritexsolutions.com/backendnode
-            npm install --omit=dev 2>/dev/null || true
-            ./node_modules/.bin/prisma db push --accept-data-loss || true
-            ./node_modules/.bin/prisma generate || true
-            chmod -R +x ./node_modules/.bin/ || true
+            npm install
+            chmod -R +x ./node_modules/.bin/
+            ./node_modules/.bin/prisma generate
+            ./node_modules/.bin/prisma db push --accept-data-loss
+            npm prune --omit=dev
+
             echo "=== Installing dependencies (secondary) ==="
             cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-            npm install --omit=dev 2>/dev/null || true
-            ./node_modules/.bin/prisma generate || true
-            chmod -R +x ./node_modules/.bin/ || true
+            npm install
+            chmod -R +x ./node_modules/.bin/
+            ./node_modules/.bin/prisma generate
+            npm prune --omit=dev
+
             echo "=== Seeding admin account ==="
             cd ~/domains/pulsewritexsolutions.com/backendnode
-            node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h,name:'Pulse X Admin'}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'Pulse X Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}await p.\$disconnect()}catch(err){console.error('Seed error:',err.message)}})()" || true
+            node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h,name:'Pulse X Admin'}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'Pulse X Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}}catch(err){console.error('Seed error:',err.message);process.exit(1)}finally{await p.\$disconnect();process.exit(0)}})()"
+
             echo "=== Verifying auth middleware ==="
             for authfile in $(find ~/domains/pulsewritexsolutions.com -name "auth.js" -path "*/dist/middleware/*" 2>/dev/null); do
               echo "Checking $authfile"
@@ -122,7 +127,7 @@ jobs:
               fi
             done
             echo "=== Restarting Node.js ==="
-            killall -9 node 2>/dev/null || true
+            killall -9 node
             sleep 3
             echo "=== Deploy complete ==="
 

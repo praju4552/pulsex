@@ -86,6 +86,7 @@ jobs:
             echo "=== Installing dependencies (primary) ==="
             cd ~/domains/pulsewritexsolutions.com/backendnode
             npm install --omit=dev 2>/dev/null || true
+            npx prisma db push --accept-data-loss || true
             ./node_modules/.bin/prisma generate || true
             chmod -R +x ./node_modules/.bin/ || true
             echo "=== Installing dependencies (secondary) ==="

@@ -50,13 +50,39 @@ const initiatePayment = (req, res) => __awaiter(void 0, void 0, void 0, function
 });
 exports.initiatePayment = initiatePayment;
 const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
+    var _a, _b, _c;
     try {
         const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderType, orderIds } = req.body;
+        // ── 1. Fetch payment record ───────────────────────────────────────────────
+        // Must exist in DB — created by initiatePayment before Razorpay modal opened.
+        const existingPayment = yield db_1.default.payment.findUnique({
+            where: { razorpayOrderId }
+        });
+        if (!existingPayment) {
+            return res.status(404).json({ error: 'Payment record not found' });
+        }
+        // ── 2. Idempotency: skip if already processed ─────────────────────────────
+        // Handles network retries and double-click submissions safely.
+        if (existingPayment.status === 'PAID') {
+            return res.status(200).json({
+                success: true,
+                message: 'Payment already processed'
+            });
+        }
+        // ── 3. Ownership: payment must belong to the authenticated user ───────────
+        // JWT payload always uses 'userId' (see auth middleware). Using ?.id too
+        // was causing undefined !== existingPayment.userId → spurious 403.
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+        if (!userId || existingPayment.userId !== userId) {
+            return res.status(403).json({
+                error: 'Forbidden: This payment does not belong to you'
+            });
+        }
+        // ── 4. Signature verification (HMAC-SHA256) ───────────────────────────────
         const isValid = (0, razorpayService_1.verifyPaymentSignature)(razorpayOrderId, razorpayPaymentId, razorpaySignature);
         if (!isValid) {
-            console.error(`Signature mismatch. Order: ${razorpayOrderId}, Secret length: ${((_a = process.env.RAZORPAY_KEY_SECRET) === null || _a === void 0 ? void 0 : _a.length) || 0}`);
-            return res.status(400).json({ error: `Signature mismatch. Secret key length in memory: ${((_b = process.env.RAZORPAY_KEY_SECRET) === null || _b === void 0 ? void 0 : _b.length) || 0} chars. Did you restart the server?` });
+            console.error(`Signature mismatch. Order: ${razorpayOrderId}, Secret length: ${((_b = process.env.RAZORPAY_KEY_SECRET) === null || _b === void 0 ? void 0 : _b.length) || 0}`);
+            return res.status(400).json({ error: `Signature mismatch. Secret key length in memory: ${((_c = process.env.RAZORPAY_KEY_SECRET) === null || _c === void 0 ? void 0 : _c.length) || 0} chars. Did you restart the server?` });
         }
         yield db_1.default.payment.update({
             where: { razorpayOrderId },
@@ -73,12 +99,11 @@ const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         else if (orderType === 'LASER') {
             yield db_1.default.laserCuttingOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
         }
-        // 📱 Step 11: WhatsApp Receipt trigger simulation (Matches auth logic)
+        // 📱 WhatsApp Receipt trigger simulation (Matches auth logic)
         try {
-            const paymentRecord = yield db_1.default.payment.findUnique({ where: { razorpayOrderId } });
-            const targetUserId = paymentRecord === null || paymentRecord === void 0 ? void 0 : paymentRecord.userId;
-            if (targetUserId) {
-                const user = yield db_1.default.prototypingUser.findUnique({ where: { id: targetUserId } });
+            // existingPayment.userId is already verified and in scope — no extra DB call needed.
+            if (userId) {
+                const user = yield db_1.default.prototypingUser.findUnique({ where: { id: userId } });
                 if (user && user.phone) {
                     console.log(`[WhatsApp Receipt] Send trigger initiated for ${user.phone} at ${new Date().toISOString()}`);
                     console.log(`Message: Hi ${user.name}, your Antigravity order has been confirmed! Payment ID: ${razorpayPaymentId}.`);

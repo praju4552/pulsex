@@ -61,11 +61,11 @@ export const verifyPayment = async (req: Request, res: Response) => {
       });
     }
 
-    // ── 3. Ownership: payment must belong to this user ────────────────────────
-    // Prevents an attacker from generating a valid HMAC for their own cheap
-    // Razorpay order and submitting it with another user's expensive orderIds.
-    const userId = (req as any).user?.id || (req as any).user?.userId;
-    if (existingPayment.userId !== userId) {
+    // ── 3. Ownership: payment must belong to the authenticated user ───────────
+    // JWT payload always uses 'userId' (see auth middleware). Using ?.id too
+    // was causing undefined !== existingPayment.userId → spurious 403.
+    const userId = (req as any).user?.userId;
+    if (!userId || existingPayment.userId !== userId) {
       return res.status(403).json({
         error: 'Forbidden: This payment does not belong to you'
       });

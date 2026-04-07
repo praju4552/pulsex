@@ -15,15 +15,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyPaymentSignature = exports.createRazorpayOrder = exports.getRazorpayInstance = void 0;
 const razorpay_1 = __importDefault(require("razorpay"));
 const crypto_1 = __importDefault(require("crypto"));
-let _razorpayInstance = null;
+// ⚠️  NO singleton — always create a fresh instance so that keys are read
+// directly from process.env every time.  This means a server restart after
+// updating the .env file on Hostinger is sufficient to pick up new keys.
 const getRazorpayInstance = () => {
-    if (!_razorpayInstance) {
-        _razorpayInstance = new razorpay_1.default({
-            key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-            key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
-        });
-    }
-    return _razorpayInstance;
+    return new razorpay_1.default({
+        key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
+    });
 };
 exports.getRazorpayInstance = getRazorpayInstance;
 const createRazorpayOrder = (amountInPaise, receiptId) => __awaiter(void 0, void 0, void 0, function* () {
@@ -35,11 +34,19 @@ const createRazorpayOrder = (amountInPaise, receiptId) => __awaiter(void 0, void
 });
 exports.createRazorpayOrder = createRazorpayOrder;
 const verifyPaymentSignature = (razorpayOrderId, razorpayPaymentId, signature) => {
+    const secret = process.env.RAZORPAY_KEY_SECRET || 'placeholder';
     const body = razorpayOrderId + '|' + razorpayPaymentId;
-    const expectedSignature = crypto_1.default
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'placeholder')
+    const expected = crypto_1.default
+        .createHmac('sha256', secret)
         .update(body)
         .digest('hex');
-    return expectedSignature === signature;
+    // Debug log — visible in PM2 logs on Hostinger
+    if (expected !== signature) {
+        console.error(`[Razorpay] Signature mismatch.\n` +
+            `  KEY_ID   = ${process.env.RAZORPAY_KEY_ID || '(not set)'}\n` +
+            `  SECRET   = ${secret.length} chars (starts with ${secret.slice(0, 4)}...)\n` +
+            `  order_id = ${razorpayOrderId}`);
+    }
+    return expected === signature;
 };
 exports.verifyPaymentSignature = verifyPaymentSignature;

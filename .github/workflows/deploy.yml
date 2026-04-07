@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+        uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
@@ -24,7 +24,7 @@ jobs:
 
       # Step 1: Clean old dist on server BEFORE uploading new files
       - name: Clean old dist on server
-        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -39,7 +39,7 @@ jobs:
 
       # Step 2: Upload new compiled backend
       - name: Deploy Root Server Bootloader
-        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -50,7 +50,7 @@ jobs:
           overwrite: true
 
       - name: Deploy Backend (primary - backendnode)
-        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -62,7 +62,7 @@ jobs:
           overwrite: true
 
       - name: Deploy Backend (secondary - nodejs)
-        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -75,12 +75,13 @@ jobs:
 
       # Step 3: Install deps, seed admin, verify auth middleware, restart
       - name: Install deps, seed admin, verify and restart
-        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
+          command_timeout: 15m
           script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             echo "=== Installing dependencies (primary) ==="
@@ -125,7 +126,7 @@ jobs:
 
       # Step 4: Verify deployed code
       - name: Verify deployed code on server
-        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -153,7 +154,7 @@ jobs:
           npm run build
 
       - name: Deploy Frontend to Hostinger
-        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}

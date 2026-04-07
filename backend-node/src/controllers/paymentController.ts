@@ -40,7 +40,7 @@ export const initiatePayment = async (req: Request, res: Response) => {
 
 export const verifyPayment = async (req: Request, res: Response) => {
   try {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderType, orderIds } = req.body;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderIds } = req.body;
 
     // ── 1. Fetch payment record ───────────────────────────────────────────────
     // Must exist in DB — created by initiatePayment before Razorpay modal opened.
@@ -83,20 +83,31 @@ export const verifyPayment = async (req: Request, res: Response) => {
       data: { razorpayPaymentId, razorpaySignature, status: 'PAID' },
     });
 
-    const updateData = { paymentStatus: 'PAID' as any, orderStatus: 'CONFIRMED' as any };
-    const ids: string[] = orderIds;
+    const ids: string[] = orderIds || [];
 
-    if (orderType === 'PROTOTYPING' || orderType === 'PCB') {
-      await prisma.prototypingOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
-    } else if (orderType === 'THREE_D') {
-      await prisma.threeDOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
-    } else if (orderType === 'LASER') {
-      await prisma.laserCuttingOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
+    // Unified checkout: update all possible order types present in the cart
+    if (ids.length > 0) {
+      // Prototyping (PCB included) uses paymentStatus & orderStatus
+      await prisma.prototypingOrder.updateMany({ 
+        where: { id: { in: ids } }, 
+        data: { paymentStatus: 'PAID' as any, orderStatus: 'CONFIRMED' as any } 
+      });
+
+      // 3D Printing uses only 'status'
+      await prisma.threeDOrder.updateMany({ 
+        where: { id: { in: ids } }, 
+        data: { status: 'CONFIRMED' as any } 
+      });
+
+      // Laser Cutting uses only 'status'
+      await prisma.laserCuttingOrder.updateMany({ 
+        where: { id: { in: ids } }, 
+        data: { status: 'CONFIRMED' as any } 
+      });
     }
 
     // 📱 WhatsApp Receipt trigger simulation (Matches auth logic)
     try {
-        // existingPayment.userId is already verified and in scope — no extra DB call needed.
         if (userId) {
              const user = await prisma.prototypingUser.findUnique({ where: { id: userId } });
              if (user && user.phone) {

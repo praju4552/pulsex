@@ -23,9 +23,32 @@ const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
 const fs_1 = __importDefault(require("fs"));
 const DEBUG_LOG = path_1.default.join(process.cwd(), 'global_debug.log');
 fs_1.default.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] Server code (app.ts) initialized\n`);
-dotenv_1.default.config();
+// ✅ Load .env relative to this file's location (dist/app.js → ../.env)
+// This works regardless of what directory Hostinger/Passenger uses as cwd.
+const envPath = path_1.default.join(__dirname, '..', '.env');
+const dotenvResult = dotenv_1.default.config({ path: envPath });
+if (dotenvResult.error) {
+    // Fallback: try process.cwd() in case .env is placed at domain root
+    dotenv_1.default.config();
+}
+// Startup diagnostic — visible in Hostinger logs
+console.log(`[ENV] RAZORPAY_KEY_ID  = ${process.env.RAZORPAY_KEY_ID || '⚠️  NOT SET'}`);
+console.log(`[ENV] KEY_SECRET loaded = ${process.env.RAZORPAY_KEY_SECRET ? `YES (${process.env.RAZORPAY_KEY_SECRET.length} chars)` : '⚠️  NOT SET'}`);
+console.log(`[ENV] .env path tried  = ${envPath}`);
 const app = (0, express_1.default)();
-app.use((0, helmet_1.default)());
+app.use((0, helmet_1.default)({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com"],
+            frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+            connectSrc: ["'self'", "https://api.razorpay.com"],
+            imgSrc: ["'self'", "data:", "https://lh3.googleusercontent.com"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            fontSrc: ["'self'", "data:"],
+        },
+    },
+}));
 const generalLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // limit each IP to 100 requests

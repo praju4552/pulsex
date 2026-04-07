@@ -20,7 +20,19 @@ import fs from 'fs';
 const DEBUG_LOG = path.join(process.cwd(), 'global_debug.log');
 fs.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] Server code (app.ts) initialized\n`);
 
-dotenv.config();
+// ✅ Load .env relative to this file's location (dist/app.js → ../.env)
+// This works regardless of what directory Hostinger/Passenger uses as cwd.
+const envPath = path.join(__dirname, '..', '.env');
+const dotenvResult = dotenv.config({ path: envPath });
+if (dotenvResult.error) {
+  // Fallback: try process.cwd() in case .env is placed at domain root
+  dotenv.config();
+}
+
+// Startup diagnostic — visible in Hostinger logs
+console.log(`[ENV] RAZORPAY_KEY_ID  = ${process.env.RAZORPAY_KEY_ID   || '⚠️  NOT SET'}`);
+console.log(`[ENV] KEY_SECRET loaded = ${process.env.RAZORPAY_KEY_SECRET ? `YES (${process.env.RAZORPAY_KEY_SECRET.length} chars)` : '⚠️  NOT SET'}`);
+console.log(`[ENV] .env path tried  = ${envPath}`);
 
 const app = express();
 

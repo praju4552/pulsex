@@ -118,7 +118,11 @@ export default function PrototypingCart() {
             body: JSON.stringify(threeDPayload)
           });
 
-          if (!res.ok) throw new Error('Failed to submit 3D Printing order');
+          if (!res.ok) {
+            let errMsg = 'Failed to submit 3D Printing order';
+            try { const data = await res.json(); if (data.error) errMsg = data.error; } catch(e){}
+            throw new Error('Order Creation Error: ' + errMsg);
+          }
           const data = await res.json();
           orderId = data.orderId;
           orderRef = data.orderRef;

@@ -24,7 +24,7 @@ jobs:
 
       # Step 1: Clean old dist on server BEFORE uploading new files
       - name: Clean old dist on server
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -76,7 +76,7 @@ jobs:
 
       # Step 3: Install deps, seed admin, verify auth middleware, restart
       - name: Install deps, seed admin, verify and restart
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -133,7 +133,7 @@ jobs:
 
       # Step 4: Verify deployed code
       - name: Verify deployed code on server
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}

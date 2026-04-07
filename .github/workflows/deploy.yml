@@ -24,12 +24,13 @@ jobs:
 
       # Step 1: Clean old dist on server BEFORE uploading new files
       - name: Clean old dist on server
-        uses: appleboy/ssh-action@v0.1.6
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
+          sync: true
           script: |
             echo "=== Cleaning old dist directories ==="
             rm -rf ~/domains/pulsewritexsolutions.com/backendnode/dist
@@ -39,7 +40,7 @@ jobs:
 
       # Step 2: Upload new compiled backend
       - name: Deploy Root Server Bootloader
-        uses: appleboy/scp-action@v0.1.6
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -50,7 +51,7 @@ jobs:
           overwrite: true
 
       - name: Deploy Backend (primary - backendnode)
-        uses: appleboy/scp-action@v0.1.6
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -62,7 +63,7 @@ jobs:
           overwrite: true
 
       - name: Deploy Backend (secondary - nodejs)
-        uses: appleboy/scp-action@v0.1.6
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -75,13 +76,14 @@ jobs:
 
       # Step 3: Install deps, seed admin, verify auth middleware, restart
       - name: Install deps, seed admin, verify and restart
-        uses: appleboy/ssh-action@v0.1.6
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
           command_timeout: 15m
+          sync: true
           script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             echo "=== Installing dependencies (primary) ==="
@@ -126,12 +128,13 @@ jobs:
 
       # Step 4: Verify deployed code
       - name: Verify deployed code on server
-        uses: appleboy/ssh-action@v0.1.6
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
+          sync: true
           script: |
             echo "=== Auth middleware verification ==="
             grep -c "invalid super admin" ~/domains/pulsewritexsolutions.com/backendnode/dist/middleware/auth.js 2>/dev/null && echo "FAIL: old code still present" || echo "PASS: auth.js is clean"
@@ -154,7 +157,7 @@ jobs:
           npm run build
 
       - name: Deploy Frontend to Hostinger
-        uses: appleboy/scp-action@v0.1.6
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}

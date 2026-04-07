@@ -57,7 +57,7 @@ export const initiateRazorpayPayment = async (
         });
         const result = await verify.json();
         if (result.success) resolve();
-        else reject(new Error('Verification failed'));
+        else reject(new Error(result.error || 'Verification failed on server'));
       },
       modal: { ondismiss: () => reject(new Error('Payment cancelled by user')) },
     };

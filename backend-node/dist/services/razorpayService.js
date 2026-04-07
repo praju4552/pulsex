@@ -20,8 +20,8 @@ const crypto_1 = __importDefault(require("crypto"));
 // updating the .env file on Hostinger is sufficient to pick up new keys.
 const getRazorpayInstance = () => {
     return new razorpay_1.default({
-        key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-        key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
+        key_id: (process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder').trim(),
+        key_secret: (process.env.RAZORPAY_KEY_SECRET || 'placeholder').trim(),
     });
 };
 exports.getRazorpayInstance = getRazorpayInstance;
@@ -34,7 +34,8 @@ const createRazorpayOrder = (amountInPaise, receiptId) => __awaiter(void 0, void
 });
 exports.createRazorpayOrder = createRazorpayOrder;
 const verifyPaymentSignature = (razorpayOrderId, razorpayPaymentId, signature) => {
-    const secret = process.env.RAZORPAY_KEY_SECRET || 'placeholder';
+    const rawSecret = process.env.RAZORPAY_KEY_SECRET || 'placeholder';
+    const secret = rawSecret.trim();
     const body = razorpayOrderId + '|' + razorpayPaymentId;
     const expected = crypto_1.default
         .createHmac('sha256', secret)
@@ -42,9 +43,15 @@ const verifyPaymentSignature = (razorpayOrderId, razorpayPaymentId, signature) =
         .digest('hex');
     // Debug log — visible in PM2 logs on Hostinger
     if (expected !== signature) {
+        const rawLen = rawSecret.length;
+        const trimLen = secret.length;
+        let warning = '';
+        if (rawLen !== trimLen) {
+            warning = `\n  ⚠️ WHITESPACE DETECTED: Secret had ${rawLen - trimLen} trailing/leading spaces or line breaks!`;
+        }
         console.error(`[Razorpay] Signature mismatch.\n` +
-            `  KEY_ID   = ${process.env.RAZORPAY_KEY_ID || '(not set)'}\n` +
-            `  SECRET   = ${secret.length} chars (starts with ${secret.slice(0, 4)}...)\n` +
+            `  KEY_ID   = ${(process.env.RAZORPAY_KEY_ID || '(not set)').trim()}\n` +
+            `  SECRET   = ${trimLen} chars (starts with ${secret.slice(0, 4)}...)${warning}\n` +
             `  order_id = ${razorpayOrderId}`);
     }
     return expected === signature;

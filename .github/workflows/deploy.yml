@@ -24,7 +24,7 @@ jobs:
 
       # Step 1: Clean old dist on server BEFORE uploading new files
       - name: Clean old dist on server
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -39,7 +39,7 @@ jobs:
 
       # Step 2: Upload new compiled backend
       - name: Deploy Root Server Bootloader
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -50,7 +50,7 @@ jobs:
           overwrite: true
 
       - name: Deploy Backend (primary - backendnode)
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -62,7 +62,7 @@ jobs:
           overwrite: true
 
       - name: Deploy Backend (secondary - nodejs)
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -75,7 +75,7 @@ jobs:
 
       # Step 3: Install deps, seed admin, verify auth middleware, restart
       - name: Install deps, seed admin, verify and restart
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -126,7 +126,7 @@ jobs:
 
       # Step 4: Verify deployed code
       - name: Verify deployed code on server
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -154,7 +154,7 @@ jobs:
           npm run build
 
       - name: Deploy Frontend to Hostinger
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}

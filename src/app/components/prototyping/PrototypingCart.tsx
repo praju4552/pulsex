@@ -157,7 +157,11 @@ export default function PrototypingCart() {
             body: JSON.stringify(payload)
           });
 
-          if (!res.ok) throw new Error('Failed to submit order');
+          if (!res.ok) {
+            let errMsg = 'Failed to submit order';
+            try { const data = await res.json(); if (data.error) errMsg = data.error; } catch(e){}
+            throw new Error('Order Creation Error: ' + errMsg);
+          }
           const data = await res.json();
           orderId = data.order?.id;
           orderRef = data.order?.orderRef;

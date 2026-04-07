@@ -146,7 +146,7 @@ jobs:
         env:
           VITE_API_URL: https://api.pulsewritexsolutions.com
           VITE_GOOGLE_CLIENT_ID: 835363988192-jr2ftrbtlklhui007gosnstjqca77m71.apps.googleusercontent.com
-          VITE_RAZORPAY_KEY_ID: rzp_live_SUdncOeOPfYDuL
+          VITE_RAZORPAY_KEY_ID: rzp_live_SaYqVVu3DybnJx
         run: |
           npm install
           npm run build

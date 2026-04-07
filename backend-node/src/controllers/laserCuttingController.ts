@@ -174,9 +174,10 @@ export const createOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
-    // 1. Create config
-    const dbConfig = await prisma.laserCuttingConfig.create({
-      data: {
+    // 1. Create or Update config (idempotent for retries)
+    const dbConfig = await prisma.laserCuttingConfig.upsert({
+      where: { fileId },
+      create: {
         fileId,
         serviceType: config.serviceType,
         material: config.material,
@@ -187,11 +188,22 @@ export const createOrder = async (req: Request, res: Response) => {
         finish: config.finish || 'standard',
         urgency: config.urgency || 'standard',
       },
+      update: {
+        serviceType: config.serviceType,
+        material: config.material,
+        thickness: parseFloat(config.thickness),
+        width: parseFloat(config.width),
+        height: parseFloat(config.height),
+        quantity: parseInt(config.quantity) || 1,
+        finish: config.finish || 'standard',
+        urgency: config.urgency || 'standard',
+      }
     });
 
-    // 2. Create laser-specific order
-    const laserOrder = await prisma.laserCuttingOrder.create({
-      data: {
+    // 2. Create or Update laser-specific order (idempotent for retries)
+    const laserOrder = await prisma.laserCuttingOrder.upsert({
+      where: { fileId },
+      create: {
         userId: userId || null,
         fileId,
         configId: dbConfig.id,
@@ -199,6 +211,11 @@ export const createOrder = async (req: Request, res: Response) => {
         quantity: quantity || 1,
         status: 'PENDING',
       },
+      update: {
+        price,
+        quantity: quantity || 1,
+        status: 'PENDING',
+      }
     });
 
     // 3. Generate IDs for unified order

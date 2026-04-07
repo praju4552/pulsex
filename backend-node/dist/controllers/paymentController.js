@@ -52,7 +52,7 @@ exports.initiatePayment = initiatePayment;
 const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;
     try {
-        const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderType, orderIds } = req.body;
+        const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderIds } = req.body;
         // ── 1. Fetch payment record ───────────────────────────────────────────────
         // Must exist in DB — created by initiatePayment before Razorpay modal opened.
         const existingPayment = yield db_1.default.payment.findUnique({
@@ -88,20 +88,27 @@ const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             where: { razorpayOrderId },
             data: { razorpayPaymentId, razorpaySignature, status: 'PAID' },
         });
-        const updateData = { paymentStatus: 'PAID', orderStatus: 'CONFIRMED' };
-        const ids = orderIds;
-        if (orderType === 'PROTOTYPING' || orderType === 'PCB') {
-            yield db_1.default.prototypingOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
-        }
-        else if (orderType === 'THREE_D') {
-            yield db_1.default.threeDOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
-        }
-        else if (orderType === 'LASER') {
-            yield db_1.default.laserCuttingOrder.updateMany({ where: { id: { in: ids } }, data: updateData });
+        const ids = orderIds || [];
+        // Unified checkout: update all possible order types present in the cart
+        if (ids.length > 0) {
+            // Prototyping (PCB included) uses paymentStatus & orderStatus
+            yield db_1.default.prototypingOrder.updateMany({
+                where: { id: { in: ids } },
+                data: { paymentStatus: 'PAID', orderStatus: 'CONFIRMED' }
+            });
+            // 3D Printing uses only 'status'
+            yield db_1.default.threeDOrder.updateMany({
+                where: { id: { in: ids } },
+                data: { status: 'CONFIRMED' }
+            });
+            // Laser Cutting uses only 'status'
+            yield db_1.default.laserCuttingOrder.updateMany({
+                where: { id: { in: ids } },
+                data: { status: 'CONFIRMED' }
+            });
         }
         // 📱 WhatsApp Receipt trigger simulation (Matches auth logic)
         try {
-            // existingPayment.userId is already verified and in scope — no extra DB call needed.
             if (userId) {
                 const user = yield db_1.default.prototypingUser.findUnique({ where: { id: userId } });
                 if (user && user.phone) {

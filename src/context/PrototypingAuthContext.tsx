@@ -38,27 +38,39 @@ const PrototypingAuthContext = createContext<PrototypingAuthContextType | undefi
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function PrototypingAuthProvider({ children }: { children: ReactNode }) {
-  // Token lives exclusively in React memory — never in localStorage.
-  // On page refresh the session intentionally clears; the user must log in again.
-  // (Future: add silent-refresh via httpOnly refreshToken cookie.)
-  const [user, setUser] = useState<PrototypingUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  // Token persists in sessionStorage — survives page refreshes but clears on tab close.
+  const [user, setUser] = useState<PrototypingUser | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('proto_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    try { return sessionStorage.getItem('proto_token'); } catch { return null; }
+  });
 
   const loginPrototyping = (newUser: PrototypingUser, newToken: string) => {
     setUser(newUser);
     setToken(newToken);
+    try {
+      sessionStorage.setItem('proto_user', JSON.stringify(newUser));
+      sessionStorage.setItem('proto_token', newToken);
+    } catch {}
   };
 
   const logoutPrototyping = () => {
     setUser(null);
     setToken(null);
-    // If CMS session was set via sessionStorage, clear that too
+    // Clear all session data
+    sessionStorage.removeItem('proto_user');
+    sessionStorage.removeItem('proto_token');
     sessionStorage.removeItem('cms_token');
     sessionStorage.removeItem('cms_admin');
   };
 
   const updatePrototypingUser = (updatedUser: PrototypingUser) => {
     setUser(updatedUser);
+    try { sessionStorage.setItem('proto_user', JSON.stringify(updatedUser)); } catch {}
   };
 
   return (

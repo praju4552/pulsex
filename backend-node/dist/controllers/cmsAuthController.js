@@ -16,7 +16,7 @@ exports.cmsLogin = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const auth_1 = require("../config/auth");
 // Hardcoded CMS admin credentials
-const CMS_ADMIN_EMAIL = 'pulsewritexsolutions@gmail.com';
+const CMS_ADMIN_EMAIL = 'pulsewritex@gmail.com';
 const CMS_ADMIN_PASSWORD = 'EdmalaB@2025';
 const cmsLogin = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {

@@ -154,9 +154,8 @@ function listUserPrototypingOrders(req, res) {
             const { userId } = req.params;
             const requestingUser = req.user;
             let targetUserId = userId;
-            const SUPER_ADMIN_EMAILS = ['prajwalshetty4552@gmail.com', 'pulsewritexsolutions@gmail.com'];
-            // Security: Force target ID to be the authenticated user's token ID unless superadmin
-            if ((requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.role) !== 'SUPER_ADMIN' || !SUPER_ADMIN_EMAILS.includes(requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.email)) {
+            // Security: Force target ID to be the authenticated user's token ID unless SUPER_ADMIN
+            if ((requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.role) !== 'SUPER_ADMIN') {
                 if (!(requestingUser === null || requestingUser === void 0 ? void 0 : requestingUser.id)) {
                     return res.status(401).json({ error: 'Invalid token payload missing user ID' });
                 }
@@ -292,12 +291,24 @@ function trackPrototypingOrder(req, res) {
 // GET /api/prototyping-orders/:id/download — secure download endpoints
 function downloadPrototypingDocument(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c;
         try {
             const { id } = req.params;
             const { type } = req.query; // 'INVOICE' or 'SALES_ORDER'
             const order = yield db_1.default.prototypingOrder.findUnique({ where: { id } });
             if (!order)
                 return res.status(404).json({ error: 'Order not found.' });
+            // ── IDOR Guard ────────────────────────────────────────────────────────────
+            // Verify the requesting user owns this order.
+            // SUPER_ADMIN may download any order for support / admin purposes.
+            const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || ((_b = req.user) === null || _b === void 0 ? void 0 : _b.userId);
+            const userRole = (_c = req.user) === null || _c === void 0 ? void 0 : _c.role;
+            if (order.userId !== userId && userRole !== 'SUPER_ADMIN') {
+                return res.status(403).json({
+                    error: 'Forbidden: You do not have access to this document.'
+                });
+            }
+            // ─────────────────────────────────────────────────────────────────────────
             const filename = type === 'SALES_ORDER'
                 ? `SalesOrder_${order.salesOrderId}.pdf`
                 : `Invoice_${order.invoiceId}.pdf`;

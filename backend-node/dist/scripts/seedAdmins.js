@@ -16,8 +16,7 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const db_1 = __importDefault(require("../db"));
 const SALT_ROUNDS = 10;
 const ADMINS = [
-    { email: 'pulsewritexsolutions@gmail.com', password: 'EdmalaB@2025', name: 'Pulse X Admin' },
-    { email: 'pulsewritex@gmail.com', password: 'prototyping@2026', name: 'Pulse X Admin 2' },
+    { email: 'pulsewritex@gmail.com', password: 'EdmalaB@2025', name: 'Pulse X Admin' }
 ];
 function seedAdmins() {
     return __awaiter(this, void 0, void 0, function* () {

@@ -83,6 +83,8 @@ const PORT = process.env.PORT || 3001;
 const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:3000',
+    'https://pulsewritexsolutions.com',
+    'https://www.pulsewritexsolutions.com',
     process.env.FRONTEND_URL,
 ].filter(Boolean);
 app.use((0, cors_1.default)({

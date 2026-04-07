@@ -24,19 +24,17 @@ jobs:
 
       # Step 1: Clean old dist on server BEFORE uploading new files
       - name: Clean old dist on server
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          sync: true
-          script: |
-            echo "=== Cleaning old dist directories ==="
+        env:
+          SSHPASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        run: |
+          sudo apt-get install -y sshpass
+          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }} "
+            echo '=== Cleaning old dist directories ==='
             rm -rf ~/domains/pulsewritexsolutions.com/backendnode/dist
             rm -rf ~/domains/pulsewritexsolutions.com/nodejs/backend-node/dist
             rm -rf ~/domains/pulsewritexsolutions.com/backend-node/dist
-            echo "=== Old dist cleaned ==="
+            echo '=== Old dist cleaned ==='
+          "
 
       # Step 2: Upload new compiled backend
       - name: Deploy Root Server Bootloader
@@ -76,14 +74,10 @@ jobs:
 
       # Step 3: Install deps, seed admin, verify auth middleware, restart
       - name: Install deps, seed admin, verify and restart
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          command_timeout: 15m
-          script: |
+        env:
+          SSHPASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }} << 'EOF'
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             export CI=1
             echo "=== Installing dependencies (primary) ==="
@@ -107,40 +101,37 @@ jobs:
 
             echo "=== Verifying auth middleware ==="
             for authfile in $(find ~/domains/pulsewritexsolutions.com -name "auth.js" -path "*/dist/middleware/*" 2>/dev/null); do
-              echo "Checking $authfile"
-              if grep -q "invalid super admin" "$authfile" || grep -q "SUPER_ADMIN_EMAILS" "$authfile"; then
+              echo "Checking \$authfile"
+              if grep -q "invalid super admin" "\$authfile" || grep -q "SUPER_ADMIN_EMAILS" "\$authfile"; then
                 echo "OLD CODE FOUND - patching with sed"
-                sed -i 's/invalid super admin account/Access denied: insufficient permissions/g' "$authfile"
-                sed -i '/SUPER_ADMIN_EMAILS/d' "$authfile"
-                echo "Patched $authfile"
+                sed -i 's/invalid super admin account/Access denied: insufficient permissions/g' "\$authfile"
+                sed -i '/SUPER_ADMIN_EMAILS/d' "\$authfile"
+                echo "Patched \$authfile"
               else
-                echo "OK - $authfile is clean"
+                echo "OK - \$authfile is clean"
               fi
             done
             echo "=== Gerber parser fix ==="
             find ~/domains/pulsewritexsolutions.com -name "gerberParser.js" -path "*/dist/services/*" 2>/dev/null | while read f; do
-              if grep -q "_x, _y, w, h" "$f"; then
-                sed -i 's/var \[_x, _y, w, h\]/var [x1, y1, x2, y2]/' "$f"
-                sed -i 's/const \[_x, _y, w, h\]/const [x1, y1, x2, y2]/' "$f"
-                sed -i '/var \[x1, y1, x2, y2\]/a\                        var w = x2 - x1;\n                        var h = y2 - y1;' "$f"
-                echo "Gerber patched: $f"
+              if grep -q "_x, _y, w, h" "\$f"; then
+                sed -i 's/var \[_x, _y, w, h\]/var \[x1, y1, x2, y2\]/' "\$f"
+                sed -i 's/const \[_x, _y, w, h\]/const \[x1, y1, x2, y2\]/' "\$f"
+                sed -i '/var \[x1, y1, x2, y2\]/a\                        var w = x2 - x1;\n                        var h = y2 - y1;' "\$f"
+                echo "Gerber patched: \$f"
               fi
             done
             echo "=== Restarting Node.js ==="
-            killall -9 node
+            killall -9 node > /dev/null 2>&1 || true
             sleep 3
             echo "=== Deploy complete ==="
+          EOF
 
       # Step 4: Verify deployed code
       - name: Verify deployed code on server
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          sync: true
-          script: |
+        env:
+          SSHPASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }} << 'EOF'
             echo "=== Auth middleware verification ==="
             grep -c "invalid super admin" ~/domains/pulsewritexsolutions.com/backendnode/dist/middleware/auth.js 2>/dev/null && echo "FAIL: old code still present" || echo "PASS: auth.js is clean"
             grep -c "SUPER_ADMIN_EMAILS" ~/domains/pulsewritexsolutions.com/backendnode/dist/middleware/auth.js 2>/dev/null && echo "FAIL: email list still present" || echo "PASS: no email list"
@@ -150,6 +141,7 @@ jobs:
             cat ~/domains/pulsewritexsolutions.com/server-crash.log 2>/dev/null || echo "No crash log"
             echo "=== Directory listing ==="
             ls -la ~/domains/pulsewritexsolutions.com/backendnode/dist/middleware/ 2>/dev/null || echo "middleware dir not found"
+          EOF
 
       # Step 5: Build and deploy frontend
       - name: Build Frontend

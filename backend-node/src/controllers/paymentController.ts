@@ -83,27 +83,37 @@ export const verifyPayment = async (req: Request, res: Response) => {
       data: { razorpayPaymentId, razorpaySignature, status: 'PAID' },
     });
 
-    const ids: string[] = orderIds || [];
+    let ids: string[] = [];
+    if (existingPayment.orderIds && Array.isArray(existingPayment.orderIds)) {
+      ids = existingPayment.orderIds as string[];
+    } else if (orderIds && Array.isArray(orderIds)) {
+      ids = orderIds;
+    }
+
+    console.log(`[Payment Verified] Processing ${ids.length} orders to mark as PAID: ${JSON.stringify(ids)}`);
 
     // Unified checkout: update all possible order types present in the cart
     if (ids.length > 0) {
       // Prototyping (PCB included) uses paymentStatus & orderStatus
-      await prisma.prototypingOrder.updateMany({ 
+      const pcbUpdated = await prisma.prototypingOrder.updateMany({ 
         where: { id: { in: ids } }, 
         data: { paymentStatus: 'PAID' as any, orderStatus: 'CONFIRMED' as any } 
       });
+      console.log(`[Payment] Updated ${pcbUpdated.count} Prototyping Orders`);
 
       // 3D Printing uses only 'status'
-      await prisma.threeDOrder.updateMany({ 
+      const threedUpdated = await prisma.threeDOrder.updateMany({ 
         where: { id: { in: ids } }, 
         data: { status: 'CONFIRMED' as any } 
       });
+      console.log(`[Payment] Updated ${threedUpdated.count} 3D Orders`);
 
       // Laser Cutting uses only 'status'
-      await prisma.laserCuttingOrder.updateMany({ 
+      const laserUpdated = await prisma.laserCuttingOrder.updateMany({ 
         where: { id: { in: ids } }, 
         data: { status: 'CONFIRMED' as any } 
       });
+      console.log(`[Payment] Updated ${laserUpdated.count} Laser Orders`);
     }
 
     // 📱 WhatsApp Receipt trigger simulation (Matches auth logic)

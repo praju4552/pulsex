@@ -64,7 +64,7 @@ export default function App() {
               </Routes>
             </PrototypingAuthProvider>
           } />
-          <Route path="/payment/success" element={<PaymentSuccessPage />} />
+          <Route path="/payment/success" element={<PrototypingAuthProvider><PaymentSuccessPage /></PrototypingAuthProvider>} />
 
           {/* CMS Admin */}
           <Route path="/cms" element={<CMSLayout />}>

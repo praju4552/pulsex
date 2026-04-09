@@ -191,7 +191,7 @@ export default function PrototypingCart() {
 
       localStorage.removeItem('prototyping_cart');
       setItems([]);
-      navigate('/payment/success');
+      setSuccess(true);
     } catch (err: any) {
       console.error(err);
       if (err.message === 'Payment cancelled by user') {

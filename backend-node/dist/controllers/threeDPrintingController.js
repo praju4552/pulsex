@@ -100,9 +100,10 @@ exports.getFileStatus = getFileStatus;
 const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { userId, fileId, config, price, quantity, customerInfo, shippingInfo } = req.body;
-        // 1. Create Config
-        const dbConfig = yield prisma.threeDPrintConfig.create({
-            data: {
+        // 1. Create or Update Config (idempotent for retries)
+        const dbConfig = yield prisma.threeDPrintConfig.upsert({
+            where: { fileId },
+            create: {
                 fileId,
                 material: config.material,
                 infill: config.infill,
@@ -111,10 +112,19 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 finish: config.finish,
                 color: config.color,
             },
+            update: {
+                material: config.material,
+                infill: config.infill,
+                scale: config.scale || 1.0,
+                layerHeight: config.layerHeight,
+                finish: config.finish,
+                color: config.color,
+            }
         });
-        // 2. Create 3D specific order
-        const threeDOrder = yield prisma.threeDOrder.create({
-            data: {
+        // 2. Create or Update 3D specific order (idempotent for retries)
+        const threeDOrder = yield prisma.threeDOrder.upsert({
+            where: { fileId },
+            create: {
                 userId: userId || null,
                 fileId,
                 configId: dbConfig.id,
@@ -122,6 +132,11 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 quantity: quantity || 1,
                 status: 'PENDING',
             },
+            update: {
+                price,
+                quantity: quantity || 1,
+                status: 'PENDING',
+            }
         });
         // 3. Integrate with the GENERAL PrototypingOrder table (as requested: "Orders must automatically map to SuperAdmin")
         // This ensures it shows up in the existing admin dashboard which polls `prototyping-orders`

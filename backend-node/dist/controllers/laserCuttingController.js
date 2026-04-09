@@ -158,9 +158,10 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         if (!fileId || !config || !customerInfo || !shippingInfo) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
         }
-        // 1. Create config
-        const dbConfig = yield db_1.default.laserCuttingConfig.create({
-            data: {
+        // 1. Create or Update config (idempotent for retries)
+        const dbConfig = yield db_1.default.laserCuttingConfig.upsert({
+            where: { fileId },
+            create: {
                 fileId,
                 serviceType: config.serviceType,
                 material: config.material,
@@ -171,10 +172,21 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 finish: config.finish || 'standard',
                 urgency: config.urgency || 'standard',
             },
+            update: {
+                serviceType: config.serviceType,
+                material: config.material,
+                thickness: parseFloat(config.thickness),
+                width: parseFloat(config.width),
+                height: parseFloat(config.height),
+                quantity: parseInt(config.quantity) || 1,
+                finish: config.finish || 'standard',
+                urgency: config.urgency || 'standard',
+            }
         });
-        // 2. Create laser-specific order
-        const laserOrder = yield db_1.default.laserCuttingOrder.create({
-            data: {
+        // 2. Create or Update laser-specific order (idempotent for retries)
+        const laserOrder = yield db_1.default.laserCuttingOrder.upsert({
+            where: { fileId },
+            create: {
                 userId: userId || null,
                 fileId,
                 configId: dbConfig.id,
@@ -182,6 +194,11 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 quantity: quantity || 1,
                 status: 'PENDING',
             },
+            update: {
+                price,
+                quantity: quantity || 1,
+                status: 'PENDING',
+            }
         });
         // 3. Generate IDs for unified order
         const salesOrderId = yield (0, idGenerator_1.generateId)('SO');

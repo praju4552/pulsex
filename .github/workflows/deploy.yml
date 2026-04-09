@@ -54,7 +54,7 @@ jobs:
           cd deploy_payload
           tar -czf deployment.tar.gz *
 
-      # ── Upload via Native SCP Connection (Bypasses Hostinger Plugin Blocks) ──
+      # ── Upload via Native SCP Connection (Trying Default Port 22) ──
       - name: Copy deployment to Hostinger
         env:
           SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
@@ -62,16 +62,16 @@ jobs:
           SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
         run: |
           sudo apt-get install -y sshpass
-          sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no -P 65002 deploy_payload/deployment.tar.gz ${SSH_USER}@${SSH_HOST}:~/domains/pulsewritexsolutions.com/
+          sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no deploy_payload/deployment.tar.gz ${SSH_USER}@${SSH_HOST}:~/domains/pulsewritexsolutions.com/
 
-      # ── Extract and Restart Server via Native SSH ──
+      # ── Extract and Restart Server via Native SSH (Trying Default Port 22) ──
       - name: Extract, Install dependencies, and Restart Server
         env:
           SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           SSH_USER: ${{ secrets.HOSTINGER_SSH_USERNAME }}
           SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
         run: |
-          sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p 65002 ${SSH_USER}@${SSH_HOST} << 'EOF'
+          sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} << 'EOF'
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             cd ~/domains/pulsewritexsolutions.com
             
@@ -91,7 +91,7 @@ jobs:
             mkdir -p tmp
             touch tmp/restart.txt
             
-            # Gentle kill of stuck passenger node processes (if any)
+            # Gentle kill of stuck passenger node processes
             pkill -f 'node dist/app.js' || true
             pkill -f 'node server.js' || true
             

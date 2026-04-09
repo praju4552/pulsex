@@ -20,9 +20,6 @@ const cmsAuthRoutes_1 = __importDefault(require("./routes/cmsAuthRoutes"));
 const cmsAdminRoutes_1 = __importDefault(require("./routes/cmsAdminRoutes"));
 const pricingRoutes_1 = __importDefault(require("./routes/pricingRoutes"));
 const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
-const fs_1 = __importDefault(require("fs"));
-const DEBUG_LOG = path_1.default.join(process.cwd(), 'global_debug.log');
-fs_1.default.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] Server code (app.ts) initialized\n`);
 // ✅ Load .env relative to this file's location (dist/app.js → ../.env)
 // This works regardless of what directory Hostinger/Passenger uses as cwd.
 const envPath = path_1.default.join(__dirname, '..', '.env');
@@ -31,7 +28,7 @@ if (dotenvResult.error) {
     // Fallback: try process.cwd() in case .env is placed at domain root
     dotenv_1.default.config();
 }
-// Startup diagnostic — visible in Hostinger logs
+// Startup diagnostic — visible in Hostinger logs (console only, no file I/O)
 console.log(`[ENV] RAZORPAY_KEY_ID  = ${process.env.RAZORPAY_KEY_ID || '⚠️  NOT SET'}`);
 console.log(`[ENV] KEY_SECRET loaded = ${process.env.RAZORPAY_KEY_SECRET ? `YES (${process.env.RAZORPAY_KEY_SECRET.length} chars)` : '⚠️  NOT SET'}`);
 console.log(`[ENV] .env path tried  = ${envPath}`);
@@ -60,18 +57,12 @@ const authLimiter = (0, express_rate_limit_1.default)({
     max: 10, // 10 requests max per window
     message: { error: 'Too many attempts, try again in 15 minutes.' }
 });
-// System Health & Diagnostics Endpoint (Audit 6)
-app.get('/health', (req, res) => {
-    let tracespaceLoaded = false;
-    try {
-        require('@tracespace/parser');
-        tracespaceLoaded = true;
-    }
-    catch (e) { }
+// System Health & Diagnostics Endpoint
+app.get('/health', (_req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        tracespace: tracespaceLoaded
+        service: 'PulseX Prototyping Backend'
     });
 });
 // Apply rate limiters
@@ -100,12 +91,8 @@ app.use((0, cors_1.default)({
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express_1.default.json({ limit: '50mb' }));
-app.use(express_1.default.urlencoded({ extended: true, limit: '50mb' }));
-app.use((req, res, next) => {
-    fs_1.default.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] REQUEST: ${req.method} ${req.url}\n`);
-    next();
-});
+app.use(express_1.default.json({ limit: '10mb' }));
+app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
 // Static uploads disabled for security - streaming via auth routes now
 // Core Routes
 app.use('/api/auth', authRoutes_1.default);
@@ -119,9 +106,6 @@ app.use('/api/cms-auth', cmsAuthRoutes_1.default);
 app.use('/api/cms-admin', cmsAdminRoutes_1.default);
 app.use('/api/pricing', pricingRoutes_1.default);
 app.use('/api/payments', paymentRoutes_1.default);
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'PulseX Prototyping Backend' });
-});
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });

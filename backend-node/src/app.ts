@@ -15,10 +15,6 @@ import cmsAuthRoutes from './routes/cmsAuthRoutes';
 import cmsAdminRoutes from './routes/cmsAdminRoutes';
 import pricingRoutes from './routes/pricingRoutes';
 import paymentRoutes from './routes/paymentRoutes';
-import fs from 'fs';
-
-const DEBUG_LOG = path.join(process.cwd(), 'global_debug.log');
-fs.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] Server code (app.ts) initialized\n`);
 
 // ✅ Load .env relative to this file's location (dist/app.js → ../.env)
 // This works regardless of what directory Hostinger/Passenger uses as cwd.
@@ -29,7 +25,7 @@ if (dotenvResult.error) {
   dotenv.config();
 }
 
-// Startup diagnostic — visible in Hostinger logs
+// Startup diagnostic — visible in Hostinger logs (console only, no file I/O)
 console.log(`[ENV] RAZORPAY_KEY_ID  = ${process.env.RAZORPAY_KEY_ID   || '⚠️  NOT SET'}`);
 console.log(`[ENV] KEY_SECRET loaded = ${process.env.RAZORPAY_KEY_SECRET ? `YES (${process.env.RAZORPAY_KEY_SECRET.length} chars)` : '⚠️  NOT SET'}`);
 console.log(`[ENV] .env path tried  = ${envPath}`);
@@ -65,18 +61,12 @@ const authLimiter = rateLimit({
     message: { error: 'Too many attempts, try again in 15 minutes.' }
 });
 
-// System Health & Diagnostics Endpoint (Audit 6)
-app.get('/health', (req, res) => {
-    let tracespaceLoaded = false;
-    try {
-        require('@tracespace/parser');
-        tracespaceLoaded = true;
-    } catch(e) {}
-    
+// System Health & Diagnostics Endpoint
+app.get('/health', (_req, res) => {
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        tracespace: tracespaceLoaded
+        service: 'PulseX Prototyping Backend'
     });
 });
 
@@ -109,13 +99,8 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-app.use((req, res, next) => {
-    fs.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] REQUEST: ${req.method} ${req.url}\n`);
-    next();
-});
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static uploads disabled for security - streaming via auth routes now
 
@@ -131,10 +116,6 @@ app.use('/api/cms-auth', cmsAuthRoutes);
 app.use('/api/cms-admin', cmsAdminRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/payments', paymentRoutes);
-
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'PulseX Prototyping Backend' });
-});
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);

@@ -61,6 +61,7 @@ jobs:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: 65002
           source: "deploy_payload/deployment.tar.gz"
           target: "~/domains/pulsewritexsolutions.com"
@@ -73,6 +74,7 @@ jobs:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: 65002
           script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH

@@ -22,19 +22,7 @@ jobs:
           npm install
           npm run build
 
-      # Step 1: Clean old dist on server BEFORE uploading new files
-      - name: Clean old dist on server
-        env:
-          SSHPASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        run: |
-          sudo apt-get install -y sshpass
-          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }} "
-            echo '=== Cleaning old dist directories ==='
-            rm -rf ~/domains/pulsewritexsolutions.com/backendnode/dist
-            rm -rf ~/domains/pulsewritexsolutions.com/nodejs/backend-node/dist
-            rm -rf ~/domains/pulsewritexsolutions.com/backend-node/dist
-            echo '=== Old dist cleaned ==='
-          "
+
 
       # Step 2: Upload new compiled backend
       - name: Deploy Root Server Bootloader
@@ -72,84 +60,7 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # Step 3: Install deps, seed admin, verify auth middleware, restart
-      - name: Install deps, seed admin, verify and restart
-        env:
-          SSHPASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        run: |
-          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }} << 'EOF'
-            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
-            export CI=1
-            echo "=== Installing dependencies (primary) ==="
-            cd ~/domains/pulsewritexsolutions.com/backendnode
-            npm install
-            chmod -R +x ./node_modules/.bin/
-            ./node_modules/.bin/prisma generate
-            ./node_modules/.bin/prisma db push --accept-data-loss
-            npm prune --omit=dev
 
-            echo "=== Installing dependencies (secondary) ==="
-            cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-            npm install
-            chmod -R +x ./node_modules/.bin/
-            ./node_modules/.bin/prisma generate
-            npm prune --omit=dev
-
-            echo "=== Seeding admin account ==="
-            cd ~/domains/pulsewritexsolutions.com/backendnode
-            node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h,name:'Pulse X Admin'}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'Pulse X Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}}catch(err){console.error('Seed error:',err.message);process.exit(1)}finally{await p.\$disconnect();process.exit(0)}})()"
-
-            echo "=== Verifying auth middleware ==="
-            for authfile in $(find ~/domains/pulsewritexsolutions.com -name "auth.js" -path "*/dist/middleware/*" 2>/dev/null); do
-              echo "Checking \$authfile"
-              if grep -q "invalid super admin" "\$authfile" || grep -q "SUPER_ADMIN_EMAILS" "\$authfile"; then
-                echo "OLD CODE FOUND - patching with sed"
-                sed -i 's/invalid super admin account/Access denied: insufficient permissions/g' "\$authfile"
-                sed -i '/SUPER_ADMIN_EMAILS/d' "\$authfile"
-                echo "Patched \$authfile"
-              else
-                echo "OK - \$authfile is clean"
-              fi
-            done
-            echo "=== Gerber parser fix ==="
-            find ~/domains/pulsewritexsolutions.com -name "gerberParser.js" -path "*/dist/services/*" 2>/dev/null | while read f; do
-              if grep -q "_x, _y, w, h" "\$f"; then
-                sed -i 's/var \[_x, _y, w, h\]/var \[x1, y1, x2, y2\]/' "\$f"
-                sed -i 's/const \[_x, _y, w, h\]/const \[x1, y1, x2, y2\]/' "\$f"
-                sed -i '/var \[x1, y1, x2, y2\]/a\                        var w = x2 - x1;\n                        var h = y2 - y1;' "\$f"
-                echo "Gerber patched: \$f"
-              fi
-            done
-            echo "=== Restarting Node.js ==="
-            mkdir -p ~/domains/pulsewritexsolutions.com/tmp
-            touch ~/domains/pulsewritexsolutions.com/tmp/restart.txt
-            mkdir -p ~/domains/pulsewritexsolutions.com/backendnode/tmp
-            touch ~/domains/pulsewritexsolutions.com/backendnode/tmp/restart.txt
-            mkdir -p ~/domains/pulsewritexsolutions.com/nodejs/backend-node/tmp
-            touch ~/domains/pulsewritexsolutions.com/nodejs/backend-node/tmp/restart.txt
-            
-            echo "Killing only user node processes gracefully if any stuck..."
-            pkill -f "node dist/app.js" || true
-            sleep 3
-            echo "=== Deploy complete ==="
-          EOF
-
-      # Step 4: Verify deployed code
-      - name: Verify deployed code on server
-        env:
-          SSHPASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        run: |
-          sshpass -e ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }} << 'EOF'
-            echo "=== Auth middleware verification ==="
-            grep -c "invalid super admin" ~/domains/pulsewritexsolutions.com/backendnode/dist/middleware/auth.js 2>/dev/null && echo "FAIL: old code still present" || echo "PASS: auth.js is clean"
-            grep -c "SUPER_ADMIN_EMAILS" ~/domains/pulsewritexsolutions.com/backendnode/dist/middleware/auth.js 2>/dev/null && echo "FAIL: email list still present" || echo "PASS: no email list"
-            echo "=== Gerber verification ==="
-            grep -n "image.size" ~/domains/pulsewritexsolutions.com/backendnode/dist/services/gerberParser.js 2>/dev/null || echo "gerberParser not found at backendnode"
-            echo "=== server-crash.log ==="
-            cat ~/domains/pulsewritexsolutions.com/server-crash.log 2>/dev/null || echo "No crash log"
-            echo "=== Directory listing ==="
-            ls -la ~/domains/pulsewritexsolutions.com/backendnode/dist/middleware/ 2>/dev/null || echo "middleware dir not found"
-          EOF
 
       # Step 5: Build and deploy frontend
       - name: Build Frontend

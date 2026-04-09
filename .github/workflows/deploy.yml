@@ -54,29 +54,24 @@ jobs:
           cd deploy_payload
           tar -czf deployment.tar.gz *
 
-      # ── Upload via Single SCP Connection (Bypasses Rate Limits) ──
+      # ── Upload via Native SCP Connection (Bypasses Hostinger Plugin Blocks) ──
       - name: Copy deployment to Hostinger
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY }}
-          port: 65002
-          source: "deploy_payload/deployment.tar.gz"
-          target: "~/domains/pulsewritexsolutions.com"
-          strip_components: 1
+        env:
+          SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          SSH_USER: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+        run: |
+          sudo apt-get install -y sshpass
+          sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no -P 65002 deploy_payload/deployment.tar.gz ${SSH_USER}@${SSH_HOST}:~/domains/pulsewritexsolutions.com/
 
-      # ── Extract and Restart Server via Single SSH Connection ──
+      # ── Extract and Restart Server via Native SSH ──
       - name: Extract, Install dependencies, and Restart Server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          key: ${{ secrets.HOSTINGER_SSH_KEY }}
-          port: 65002
-          script: |
+        env:
+          SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          SSH_USER: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+        run: |
+          sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p 65002 ${SSH_USER}@${SSH_HOST} << 'EOF'
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             cd ~/domains/pulsewritexsolutions.com
             
@@ -101,3 +96,4 @@ jobs:
             pkill -f 'node server.js' || true
             
             echo "✅ Deployment Successful!"
+          EOF

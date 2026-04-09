@@ -33,21 +33,67 @@ jobs:
           npm install
           npm run build
 
-      # ── Upload Backend Artifact ──
-      - name: Upload Backend Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-build
-          path: |
-            backend-node/dist/
-            backend-node/prisma/
-            backend-node/package.json
-            backend-node/package-lock.json
-            server.js
+      # ── Package Everything for Deployment ──
+      - name: Package Deployment Archive
+        run: |
+          mkdir -p deploy_payload/backendnode
+          mkdir -p deploy_payload/public_html
+          
+          # Copy frontend
+          cp -r dist/* deploy_payload/public_html/
+          cp dist/.htaccess deploy_payload/public_html/
+          
+          # Copy backend
+          cp -r backend-node/dist deploy_payload/backendnode/
+          cp -r backend-node/prisma deploy_payload/backendnode/
+          cp backend-node/package.json deploy_payload/backendnode/
+          cp backend-node/package-lock.json deploy_payload/backendnode/
+          cp server.js deploy_payload/
+          
+          # Compress into a single tarball
+          cd deploy_payload
+          tar -czf deployment.tar.gz *
 
-      # ── Upload Frontend Artifact ──
-      - name: Upload Frontend Artifact
-        uses: actions/upload-artifact@v4
+      # ── Upload via Single SCP Connection (Bypasses Rate Limits) ──
+      - name: Copy deployment to Hostinger
+        uses: appleboy/scp-action@v0.1.7
         with:
-          name: frontend-build
-          path: dist/
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          source: "deploy_payload/deployment.tar.gz"
+          target: "~/domains/pulsewritexsolutions.com"
+          strip_components: 1
+
+      # ── Extract and Restart Server via Single SSH Connection ──
+      - name: Extract, Install dependencies, and Restart Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          script: |
+            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
+            cd ~/domains/pulsewritexsolutions.com
+            
+            echo "1. Extracting deployment archive..."
+            tar -xzf deployment.tar.gz
+            rm deployment.tar.gz
+            
+            echo "2. Installing Backend Dependencies..."
+            cd backendnode
+            npm install
+            chmod -R +x ./node_modules/.bin/
+            ./node_modules/.bin/prisma generate
+            npm prune --omit=dev
+            
+            echo "3. Restarting Node Application..."
+            cd ~/domains/pulsewritexsolutions.com
+            mkdir -p tmp
+            touch tmp/restart.txt
+            
+            # Gentle kill of stuck passenger node processes (if any)
+            pkill -f 'node dist/app.js' || true
+            pkill -f 'node server.js' || true
+            
+            echo "✅ Deployment Successful!"

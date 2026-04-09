@@ -1,11 +1,11 @@
-name: Deploy to Hostinger
+name: Build PulseX
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,53 +16,14 @@ jobs:
         with:
           node-version: '22'
 
+      # ── Build Backend ──
       - name: Build backend
         run: |
           cd backend-node
           npm install
           npm run build
 
-
-
-      # Step 2: Upload new compiled backend
-      - name: Deploy Root Server Bootloader
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          source: "server.js"
-          target: "~/domains/pulsewritexsolutions.com/"
-          overwrite: true
-
-      - name: Deploy Backend (primary - backendnode)
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
-          target: "~/domains/pulsewritexsolutions.com/backendnode"
-          strip_components: 1
-          overwrite: true
-
-      - name: Deploy Backend (secondary - nodejs)
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
-          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
-          strip_components: 1
-          overwrite: true
-
-
-
-      # Step 5: Build and deploy frontend
+      # ── Build Frontend ──
       - name: Build Frontend
         env:
           VITE_API_URL: https://api.pulsewritexsolutions.com
@@ -72,13 +33,21 @@ jobs:
           npm install
           npm run build
 
-      - name: Deploy Frontend to Hostinger
-        uses: appleboy/scp-action@v1
+      # ── Upload Backend Artifact ──
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
         with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          source: "dist/*,dist/.htaccess"
-          target: "~/domains/pulsewritexsolutions.com/public_html"
-          strip_components: 1
+          name: backend-build
+          path: |
+            backend-node/dist/
+            backend-node/prisma/
+            backend-node/package.json
+            backend-node/package-lock.json
+            server.js
+
+      # ── Upload Frontend Artifact ──
+      - name: Upload Frontend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: dist/

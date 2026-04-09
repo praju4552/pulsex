@@ -121,7 +121,15 @@ jobs:
               fi
             done
             echo "=== Restarting Node.js ==="
-            killall -9 node > /dev/null 2>&1 || true
+            mkdir -p ~/domains/pulsewritexsolutions.com/tmp
+            touch ~/domains/pulsewritexsolutions.com/tmp/restart.txt
+            mkdir -p ~/domains/pulsewritexsolutions.com/backendnode/tmp
+            touch ~/domains/pulsewritexsolutions.com/backendnode/tmp/restart.txt
+            mkdir -p ~/domains/pulsewritexsolutions.com/nodejs/backend-node/tmp
+            touch ~/domains/pulsewritexsolutions.com/nodejs/backend-node/tmp/restart.txt
+            
+            echo "Killing only user node processes gracefully if any stuck..."
+            pkill -f "node dist/app.js" || true
             sleep 3
             echo "=== Deploy complete ==="
           EOF

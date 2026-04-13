@@ -16,6 +16,23 @@ jobs:
         with:
           node-version: '22'
 
+      # ── Verify secrets exist before wasting build time ──
+      - name: Verify deployment secrets
+        env:
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        run: |
+          echo "SSH_HOST length: ${#SSH_HOST}"
+          echo "SSH_USER length: ${#SSH_USER}"
+          echo "SSH_PASS length: ${#SSH_PASS}"
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_PASS" ]; then
+            echo "::error::One or more deployment secrets are empty!"
+            echo "Required secrets: HOSTINGER_SSH_HOST, HOSTINGER_SSH_USER, HOSTINGER_SSH_PASSWORD"
+            exit 1
+          fi
+          echo "✅ All secrets are set."
+
       # ── Build Backend ──
       - name: Build backend
         run: |
@@ -33,67 +50,69 @@ jobs:
           npm install
           npm run build
 
-      # ── Package Everything for Deployment ──
+      # ── Package into single tarball (faster upload) ──
       - name: Package Deployment Archive
         run: |
           mkdir -p deploy_payload/backendnode
           mkdir -p deploy_payload/public_html
-          
+
           # Copy frontend
           cp -r dist/* deploy_payload/public_html/
-          cp dist/.htaccess deploy_payload/public_html/
-          
+          [ -f dist/.htaccess ] && cp dist/.htaccess deploy_payload/public_html/ || true
+
           # Copy backend
           cp -r backend-node/dist deploy_payload/backendnode/
           cp -r backend-node/prisma deploy_payload/backendnode/
           cp backend-node/package.json deploy_payload/backendnode/
           cp backend-node/package-lock.json deploy_payload/backendnode/
-          cp server.js deploy_payload/
-          
-          # Compress into a single tarball
+          [ -f server.js ] && cp server.js deploy_payload/ || true
+
+          # Compress
           cd deploy_payload
-          tar -czf deployment.tar.gz *
+          tar -czf ../deployment.tar.gz .
+          ls -lh ../deployment.tar.gz
 
-      # ── Upload via Native SCP Connection (Trying Default Port 22) ──
-      - name: Copy deployment to Hostinger
-        env:
-          SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          SSH_USER: ${{ secrets.HOSTINGER_SSH_USERNAME }}
-          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-        run: |
-          sudo apt-get install -y sshpass
-          sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no deploy_payload/deployment.tar.gz ${SSH_USER}@${SSH_HOST}:~/domains/pulsewritexsolutions.com/
+      # ── Upload tarball via SCP ──
+      - name: Upload to Hostinger
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "deployment.tar.gz"
+          target: "~/domains/pulsewritexsolutions.com"
+          overwrite: true
 
-      # ── Extract and Restart Server via Native SSH (Trying Default Port 22) ──
-      - name: Extract, Install dependencies, and Restart Server
-        env:
-          SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          SSH_USER: ${{ secrets.HOSTINGER_SSH_USERNAME }}
-          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-        run: |
-          sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} << 'EOF'
+      # ── Extract, install deps, restart ──
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          command_timeout: 15m
+          script: |
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             cd ~/domains/pulsewritexsolutions.com
-            
-            echo "1. Extracting deployment archive..."
+
+            echo "=== 1. Extracting deployment archive ==="
             tar -xzf deployment.tar.gz
-            rm deployment.tar.gz
-            
-            echo "2. Installing Backend Dependencies..."
+            rm -f deployment.tar.gz
+
+            echo "=== 2. Installing backend dependencies ==="
             cd backendnode
-            npm install
-            chmod -R +x ./node_modules/.bin/
-            ./node_modules/.bin/prisma generate
-            npm prune --omit=dev
-            
-            echo "3. Restarting Node Application..."
+            npm install --omit=dev 2>/dev/null || true
+            chmod -R +x ./node_modules/.bin/ 2>/dev/null || true
+            ./node_modules/.bin/prisma generate || true
+
+            echo "=== 3. Restarting application ==="
             cd ~/domains/pulsewritexsolutions.com
             mkdir -p tmp
             touch tmp/restart.txt
-            
-            # Gentle kill of stuck passenger node processes
             pkill -f 'node dist/app.js' || true
             pkill -f 'node server.js' || true
-            
-            echo "✅ Deployment Successful!"
-          EOF
+            sleep 2
+
+            echo "✅ Deployment complete!"

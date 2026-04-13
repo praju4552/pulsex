@@ -145,7 +145,14 @@ export const getAllOrders = async (req: Request, res: Response) => {
         o.email?.toLowerCase().includes(s)
       );
     }
-    if (status && status !== 'all') allOrders = allOrders.filter(o => o.orderStatus === status);
+
+    if (status && status !== 'all') {
+      allOrders = allOrders.filter(o => o.orderStatus === status);
+    } else {
+      // By default, hide PENDING orders (abandoned checkouts without payment) to declutter the admin panel
+      allOrders = allOrders.filter(o => o.orderStatus !== 'PENDING');
+    }
+
     if (payment && payment !== 'all') allOrders = allOrders.filter(o => o.paymentStatus === payment);
 
     const total = allOrders.length;

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Package, Search, ChevronRight, Clock, CheckCircle2, Truck, AlertCircle, Loader2, FileDown, FileText, Download } from 'lucide-react';
+import { Package, Search, ChevronRight, Clock, CheckCircle2, Truck, AlertCircle, Loader2, FileDown, FileText, Download, CreditCard } from 'lucide-react';
 import { PrototypingHeader } from './PrototypingHeader';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../../api/config';
 import { usePrototypingAuth } from '../../../context/PrototypingAuthContext';
+import { initiateRazorpayPayment } from '../../../services/paymentService';
 
 interface Order {
   id: string;
@@ -16,12 +17,18 @@ interface Order {
   specSummary: string;
   totalAmount: number;
   orderStatus: string;
+  paymentStatus?: string;
   createdAt: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
 }
 
 export default function PrototypingOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user, token } = usePrototypingAuth();
 
@@ -50,6 +57,35 @@ export default function PrototypingOrders() {
 
     fetchOrders();
   }, [user?.id, navigate]);
+
+  const handlePayNow = async (order: Order, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setPayingOrderId(order.id);
+      await initiateRazorpayPayment(
+        order.totalAmount, // Already in paise
+        [order.id],
+        'PROTOTYPING',     // Generic routing type
+        token || '',
+        {
+          name: `${user?.name || order.firstName || ''} ${order.lastName || ''}`.trim(),
+          email: user?.email || order.email || '',
+          phone: user?.phone || order.phone || ''
+        }
+      );
+      
+      // On success, refresh the list
+      alert('Payment successful!');
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Payment Error:', err);
+      if (err.message !== 'Payment cancelled by user') {
+        alert('Payment failed: ' + (err.message || 'Please try again later.'));
+      }
+    } finally {
+      setPayingOrderId(null);
+    }
+  };
 
   const statusIcons: Record<string, any> = {
     PENDING: <Clock className="w-4 h-4" />,
@@ -129,7 +165,7 @@ export default function PrototypingOrders() {
                     <div className="flex items-center gap-4 text-xs text-zinc-600">
                       <span>{new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       <span className="w-1 h-1 bg-zinc-800 rounded-full" />
-                      <span>Total: ₹{order.totalAmount}</span>
+                      <span>Total: ₹{order.totalAmount / 100}</span>
                       {order.projectId && (
                         <>
                           <span className="w-1 h-1 bg-zinc-800 rounded-full" />
@@ -148,7 +184,18 @@ export default function PrototypingOrders() {
                     </div>
                     
                     <div className="flex gap-2">
-                         <button 
+                      { (order.paymentStatus === 'UNPAID' || order.paymentStatus === 'PENDING' || order.orderStatus === 'PENDING') && (
+                        <button 
+                          onClick={(e) => handlePayNow(order, e)}
+                          disabled={payingOrderId === order.id}
+                          className="px-3 py-2 bg-[#00cc55] hover:bg-[#00cc55]/90 text-black rounded-lg border border-[#00cc55]/20 transition-all flex items-center gap-1.5 text-xs font-black uppercase tracking-wider shadow-[0_0_10px_rgba(0,204,85,0.3)] disabled:opacity-50"
+                          title="Complete Payment"
+                        >
+                          {payingOrderId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CreditCard className="w-3 h-3" />} Pay
+                        </button>
+                      )}
+                      
+                      <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(`${API_BASE_URL}/prototyping-orders/${order.id}/download?type=SALES_ORDER&token=${token}`, '_blank');

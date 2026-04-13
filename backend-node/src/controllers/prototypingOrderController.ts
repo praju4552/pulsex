@@ -261,6 +261,7 @@ export async function trackPrototypingOrder(req: Request, res: Response) {
     const order = await prisma.prototypingOrder.findUnique({
       where: { orderRef },
       select: {
+        id: true,
         orderRef: true,
         orderStatus: true,
         paymentStatus: true,

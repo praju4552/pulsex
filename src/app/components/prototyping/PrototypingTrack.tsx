@@ -5,6 +5,7 @@ import { Search, Loader2, Clock, CheckCircle2, Truck, AlertCircle, MapPin, Credi
 import { API_BASE_URL } from '../../../api/config';
 
 interface TrackedOrder {
+  id: string;
   orderRef: string;
   orderStatus: string;
   paymentStatus: string;

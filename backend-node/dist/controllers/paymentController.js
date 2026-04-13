@@ -88,24 +88,34 @@ const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             where: { razorpayOrderId },
             data: { razorpayPaymentId, razorpaySignature, status: 'PAID' },
         });
-        const ids = orderIds || [];
+        let ids = [];
+        if (existingPayment.orderIds && Array.isArray(existingPayment.orderIds)) {
+            ids = existingPayment.orderIds;
+        }
+        else if (orderIds && Array.isArray(orderIds)) {
+            ids = orderIds;
+        }
+        console.log(`[Payment Verified] Processing ${ids.length} orders to mark as PAID: ${JSON.stringify(ids)}`);
         // Unified checkout: update all possible order types present in the cart
         if (ids.length > 0) {
             // Prototyping (PCB included) uses paymentStatus & orderStatus
-            yield db_1.default.prototypingOrder.updateMany({
+            const pcbUpdated = yield db_1.default.prototypingOrder.updateMany({
                 where: { id: { in: ids } },
                 data: { paymentStatus: 'PAID', orderStatus: 'CONFIRMED' }
             });
+            console.log(`[Payment] Updated ${pcbUpdated.count} Prototyping Orders`);
             // 3D Printing uses only 'status'
-            yield db_1.default.threeDOrder.updateMany({
+            const threedUpdated = yield db_1.default.threeDOrder.updateMany({
                 where: { id: { in: ids } },
                 data: { status: 'CONFIRMED' }
             });
+            console.log(`[Payment] Updated ${threedUpdated.count} 3D Orders`);
             // Laser Cutting uses only 'status'
-            yield db_1.default.laserCuttingOrder.updateMany({
+            const laserUpdated = yield db_1.default.laserCuttingOrder.updateMany({
                 where: { id: { in: ids } },
                 data: { status: 'CONFIRMED' }
             });
+            console.log(`[Payment] Updated ${laserUpdated.count} Laser Orders`);
         }
         // 📱 WhatsApp Receipt trigger simulation (Matches auth logic)
         try {

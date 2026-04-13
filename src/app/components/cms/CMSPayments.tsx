@@ -91,7 +91,7 @@ export default function CMSPayments() {
                   <th className="px-4 py-3 text-left">Internal ID</th>
                   <th className="px-4 py-3 text-left">Razorpay Order ID</th>
                   <th className="px-4 py-3 text-left">Razorpay Payment ID</th>
-                  <th className="px-4 py-3 text-right">Amount (Paise)</th>
+                  <th className="px-4 py-3 text-right">Amount (INR)</th>
                   <th className="px-4 py-3 text-center">API Status</th>
                 </tr>
               </thead>
@@ -102,7 +102,9 @@ export default function CMSPayments() {
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.id}</td>
                     <td className="px-4 py-3 font-mono text-xs text-white">{p.razorpayOrderId}</td>
                     <td className="px-4 py-3 font-mono text-xs text-blue-400">{p.razorpayPaymentId || '—'}</td>
-                    <td className="px-4 py-3 text-right font-bold text-white text-xs">{p.currency} {p.amount}</td>
+                    <td className="px-4 py-3 text-right font-bold text-white text-xs">
+                      {p.currency} {(p.amount / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold ${payBadge(p.status)}`}>{p.status}</span>
                     </td>

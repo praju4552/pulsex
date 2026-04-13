@@ -140,7 +140,9 @@ export default function ServiceOrdersPage({ serviceFilter, title }: Props) {
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs truncate max-w-[160px]" title={o.specSummary}>{o.specSummary || '—'}</td>
-                    <td className="px-4 py-3 text-right font-bold text-white text-xs">₹{(o.totalAmount / 100).toFixed(0)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-white text-xs">
+                      ₹{(o.totalAmount / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold ${statusBadge(o.orderStatus)}`}>{o.orderStatus.replace(/_/g,' ')}</span>
                     </td>

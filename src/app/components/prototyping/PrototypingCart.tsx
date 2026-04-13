@@ -195,9 +195,15 @@ export default function PrototypingCart() {
     } catch (err: any) {
       console.error(err);
       if (err.message === 'Payment cancelled by user') {
-         alert('Payment was cancelled. Your order is submittted — you can pay from your orders panel.');
+         alert('Payment was cancelled. Your order has been saved — redirecting to your orders panel where you can complete the payment.');
+         localStorage.removeItem('prototyping_cart');
+         setItems([]);
+         navigate('/prototyping/orders');
       } else {
-         alert('Payment verification failed: ' + (err.message || 'Unknown network error. Please check your internet connection.'));
+         alert('Payment failed: ' + (err.message || 'Unknown network error.'));
+         localStorage.removeItem('prototyping_cart');
+         setItems([]);
+         navigate('/prototyping/orders');
       }
     } finally {
       setIsSubmitting(false);

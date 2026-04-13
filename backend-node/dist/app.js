@@ -9,6 +9,7 @@ const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const pcbRoutes_1 = __importDefault(require("./routes/pcbRoutes"));
 const prototypingOrderRoutes_1 = __importDefault(require("./routes/prototypingOrderRoutes"));
@@ -19,7 +20,6 @@ const serviceInquiryRoutes_1 = __importDefault(require("./routes/serviceInquiryR
 const cmsAuthRoutes_1 = __importDefault(require("./routes/cmsAuthRoutes"));
 const cmsAdminRoutes_1 = __importDefault(require("./routes/cmsAdminRoutes"));
 const pricingRoutes_1 = __importDefault(require("./routes/pricingRoutes"));
-const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
 // ✅ Load .env relative to this file's location (dist/app.js → ../.env)
 // This works regardless of what directory Hostinger/Passenger uses as cwd.
 const envPath = path_1.default.join(__dirname, '..', '.env');
@@ -93,6 +93,10 @@ app.use((0, cors_1.default)({
 }));
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
+// 🌐 Serve Static Frontend (Fallback for Hostinger Passenger)
+// This ensures the main domain works even if Passenger hijacks the root.
+const publicPath = path_1.default.join(__dirname, '..', '..', 'public_html');
+app.use(express_1.default.static(publicPath));
 // Static uploads disabled for security - streaming via auth routes now
 // Core Routes
 app.use('/api/auth', authRoutes_1.default);
@@ -105,7 +109,18 @@ app.use('/api/service-inquiry', serviceInquiryRoutes_1.default);
 app.use('/api/cms-auth', cmsAuthRoutes_1.default);
 app.use('/api/cms-admin', cmsAdminRoutes_1.default);
 app.use('/api/pricing', pricingRoutes_1.default);
-app.use('/api/payments', paymentRoutes_1.default);
+// Fallback route for SPA - send index.html for any non-API routes
+app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+        const indexFile = path_1.default.join(publicPath, 'index.html');
+        if (fs_1.default.existsSync(indexFile)) {
+            res.sendFile(indexFile);
+        }
+        else {
+            res.status(404).send('Frontend not found in public_html');
+        }
+    }
+});
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });

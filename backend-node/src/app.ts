@@ -4,6 +4,7 @@ import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import authRoutes from './routes/authRoutes';
 import pcbRoutes from './routes/pcbRoutes';
 import prototypingOrderRoutes from './routes/prototypingOrderRoutes';
@@ -102,6 +103,11 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// 🌐 Serve Static Frontend (Fallback for Hostinger Passenger)
+// This ensures the main domain works even if Passenger hijacks the root.
+const publicPath = path.join(__dirname, '..', '..', 'public_html');
+app.use(express.static(publicPath));
+
 // Static uploads disabled for security - streaming via auth routes now
 
 // Core Routes
@@ -115,7 +121,17 @@ app.use('/api/service-inquiry', serviceInquiryRoutes);
 app.use('/api/cms-auth', cmsAuthRoutes);
 app.use('/api/cms-admin', cmsAdminRoutes);
 app.use('/api/pricing', pricingRoutes);
-app.use('/api/payments', paymentRoutes);
+// Fallback route for SPA - send index.html for any non-API routes
+app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+        const indexFile = path.join(publicPath, 'index.html');
+        if (fs.existsSync(indexFile)) {
+            res.sendFile(indexFile);
+        } else {
+            res.status(404).send('Frontend not found in public_html');
+        }
+    }
+});
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);

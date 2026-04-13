@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -58,13 +67,26 @@ const authLimiter = (0, express_rate_limit_1.default)({
     message: { error: 'Too many attempts, try again in 15 minutes.' }
 });
 // System Health & Diagnostics Endpoint
-app.get('/health', (_req, res) => {
+app.get('/health', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    let threeAvailable = false;
+    try {
+        // Just check if we can resolve it, don't load the whole thing
+        require.resolve('three');
+        threeAvailable = true;
+    }
+    catch (e) { }
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        service: 'PulseX Prototyping Backend'
+        service: 'PulseX Prototyping Backend',
+        diagnostics: {
+            threejs: threeAvailable ? 'available' : 'missing (lazy-load will fail)',
+            node_version: process.version,
+            cwd: process.cwd(),
+            dirname: __dirname
+        }
     });
-});
+}));
 // Apply rate limiters
 app.use('/api', generalLimiter);
 app.use('/api/auth', authLimiter);

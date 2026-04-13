@@ -63,11 +63,24 @@ const authLimiter = rateLimit({
 });
 
 // System Health & Diagnostics Endpoint
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
+    let threeAvailable = false;
+    try {
+        // Just check if we can resolve it, don't load the whole thing
+        require.resolve('three');
+        threeAvailable = true;
+    } catch (e) {}
+
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        service: 'PulseX Prototyping Backend'
+        service: 'PulseX Prototyping Backend',
+        diagnostics: {
+            threejs: threeAvailable ? 'available' : 'missing (lazy-load will fail)',
+            node_version: process.version,
+            cwd: process.cwd(),
+            dirname: __dirname
+        }
     });
 });
 

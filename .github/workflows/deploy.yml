@@ -40,6 +40,12 @@ jobs:
           npm install
           npm run build
 
+      # ── Generate Prisma client (linux-x64, same as Hostinger) ──
+      - name: Generate Prisma client
+        run: |
+          cd backend-node
+          npx prisma generate
+
       # ── Build Frontend ──
       - name: Build Frontend
         env:
@@ -50,69 +56,93 @@ jobs:
           npm install
           npm run build
 
-      # ── Package into single tarball (faster upload) ──
-      - name: Package Deployment Archive
+      # ── Prepare deployment payload ──
+      - name: Prepare deployment files
         run: |
-          mkdir -p deploy_payload/backendnode
-          mkdir -p deploy_payload/public_html
+          mkdir -p deploy/backendnode/dist
+          mkdir -p deploy/backendnode/prisma
+          mkdir -p deploy/backendnode/node_modules
+          mkdir -p deploy/public_html
+          mkdir -p deploy/tmp
 
-          # Copy frontend
-          cp -r dist/* deploy_payload/public_html/
-          [ -f dist/.htaccess ] && cp dist/.htaccess deploy_payload/public_html/ || true
+          # Backend compiled code
+          cp -r backend-node/dist/* deploy/backendnode/dist/
+          cp -r backend-node/prisma/* deploy/backendnode/prisma/
+          cp backend-node/package.json deploy/backendnode/
+          cp backend-node/package-lock.json deploy/backendnode/
 
-          # Copy backend
-          cp -r backend-node/dist deploy_payload/backendnode/
-          cp -r backend-node/prisma deploy_payload/backendnode/
-          cp backend-node/package.json deploy_payload/backendnode/
-          cp backend-node/package-lock.json deploy_payload/backendnode/
-          [ -f server.js ] && cp server.js deploy_payload/ || true
+          # Prisma generated client (built for linux-x64 on this runner)
+          cp -r backend-node/node_modules/.prisma deploy/backendnode/node_modules/
+          cp -r backend-node/node_modules/@prisma deploy/backendnode/node_modules/
 
-          # Compress
-          cd deploy_payload
-          tar -czf ../deployment.tar.gz .
-          ls -lh ../deployment.tar.gz
+          # Frontend
+          cp -r dist/* deploy/public_html/
+          [ -f dist/.htaccess ] && cp dist/.htaccess deploy/public_html/ || true
 
-      # ── Upload tarball via SCP ──
-      - name: Upload to Hostinger
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          source: "deployment.tar.gz"
-          target: "~/domains/pulsewritexsolutions.com"
-          overwrite: true
+          # Server bootloader
+          [ -f server.js ] && cp server.js deploy/ || true
 
-      # ── Extract, install deps, restart ──
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          command_timeout: 15m
-          script: |
-            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
-            cd ~/domains/pulsewritexsolutions.com
+          # Restart marker
+          touch deploy/tmp/restart.txt
 
-            echo "=== 1. Extracting deployment archive ==="
-            tar -xzf deployment.tar.gz
-            rm -f deployment.tar.gz
+          echo "=== Deployment payload ==="
+          du -sh deploy/*/
 
-            echo "=== 2. Installing backend dependencies ==="
-            cd backendnode
-            npm install --omit=dev 2>/dev/null || true
-            chmod -R +x ./node_modules/.bin/ 2>/dev/null || true
-            ./node_modules/.bin/prisma generate || true
+      # ── Deploy via FTP (bypasses Hostinger SSH firewall) ──
+      # NOTE: Uses same credentials as SSH. Hostinger shares user/pass
+      # across SSH (port 65002) and FTP (port 21).
+      # If new npm packages are added, run deploy-to-hostinger.ps1 manually.
+      - name: Deploy to Hostinger via FTP
+        env:
+          FTP_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          FTP_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          FTP_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
-            echo "=== 3. Restarting application ==="
-            cd ~/domains/pulsewritexsolutions.com
-            mkdir -p tmp
-            touch tmp/restart.txt
-            pkill -f 'node dist/app.js' || true
-            pkill -f 'node server.js' || true
-            sleep 2
+          # Create lftp script for reliable deployment
+          cat > /tmp/ftp_deploy.sh << 'SCRIPT'
+          #!/bin/bash
+          set -e
 
-            echo "✅ Deployment complete!"
+          REMOTE_BASE="domains/pulsewritexsolutions.com"
+
+          lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" << EOF
+            set ssl:verify-certificate no
+            set ftp:ssl-allow yes
+            set net:timeout 60
+            set net:max-retries 5
+            set net:reconnect-interval-base 5
+            set mirror:use-pget-n 5
+
+            echo "=== Uploading backend dist ==="
+            mirror -R --verbose --delete --no-perms deploy/backendnode/dist/ ${REMOTE_BASE}/backendnode/dist/
+
+            echo "=== Uploading Prisma schema ==="
+            mirror -R --verbose --no-perms deploy/backendnode/prisma/ ${REMOTE_BASE}/backendnode/prisma/
+
+            echo "=== Uploading Prisma client ==="
+            mirror -R --verbose --no-perms deploy/backendnode/node_modules/.prisma/ ${REMOTE_BASE}/backendnode/node_modules/.prisma/
+            mirror -R --verbose --no-perms deploy/backendnode/node_modules/@prisma/ ${REMOTE_BASE}/backendnode/node_modules/@prisma/
+
+            echo "=== Uploading package files ==="
+            put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package.json
+            put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package-lock.json
+
+            echo "=== Uploading frontend ==="
+            mirror -R --verbose --delete --no-perms deploy/public_html/ ${REMOTE_BASE}/public_html/
+
+            echo "=== Uploading server bootloader ==="
+            put -O ${REMOTE_BASE}/ deploy/server.js || true
+
+            echo "=== Triggering restart ==="
+            mkdir -p ${REMOTE_BASE}/tmp
+            put -O ${REMOTE_BASE}/tmp/ deploy/tmp/restart.txt
+
+            echo "✅ FTP deployment complete!"
+            bye
+          EOF
+          SCRIPT
+
+          chmod +x /tmp/ftp_deploy.sh
+          bash /tmp/ftp_deploy.sh

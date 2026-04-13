@@ -115,27 +115,29 @@ jobs:
           lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" << EOF
             set ssl:verify-certificate no
             set ftp:ssl-allow yes
-            set net:timeout 60
-            set net:max-retries 5
+            set ftp:ssl-force no
+            set net:timeout 30
+            set net:max-retries 3
             set net:reconnect-interval-base 5
-            set mirror:use-pget-n 5
+            set ftp:ssl-protect-data yes
+            set mirror:use-pget-n 1
 
             echo "=== Uploading backend dist ==="
-            mirror -R --verbose --delete --no-perms --parallel=3 deploy/backendnode/dist/ ${REMOTE_BASE}/backendnode/dist/
+            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/backendnode/dist/ ${REMOTE_BASE}/backendnode/dist/
 
             echo "=== Uploading Prisma schema ==="
-            mirror -R --verbose --no-perms --parallel=3 deploy/backendnode/prisma/ ${REMOTE_BASE}/backendnode/prisma/
+            mirror -R --verbose --only-newer --no-perms deploy/backendnode/prisma/ ${REMOTE_BASE}/backendnode/prisma/
 
             echo "=== Uploading Prisma client ==="
-            mirror -R --verbose --no-perms --parallel=3 deploy/backendnode/node_modules/.prisma/ ${REMOTE_BASE}/backendnode/node_modules/.prisma/
-            mirror -R --verbose --no-perms --parallel=3 deploy/backendnode/node_modules/@prisma/ ${REMOTE_BASE}/backendnode/node_modules/@prisma/
+            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/backendnode/node_modules/.prisma/ ${REMOTE_BASE}/backendnode/node_modules/.prisma/
+            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/backendnode/node_modules/@prisma/ ${REMOTE_BASE}/backendnode/node_modules/@prisma/
 
             echo "=== Uploading package files ==="
             put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package.json
             put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package-lock.json
 
             echo "=== Uploading frontend ==="
-            mirror -R --verbose --delete --no-perms --parallel=3 deploy/public_html/ ${REMOTE_BASE}/public_html/
+            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/public_html/ ${REMOTE_BASE}/public_html/
 
             echo "=== Uploading server bootloader ==="
             put -O ${REMOTE_BASE}/ deploy/server.js

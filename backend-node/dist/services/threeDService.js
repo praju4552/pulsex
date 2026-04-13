@@ -65,9 +65,12 @@ class ThreeDService {
                 geometry = loader.parse(arrayBuffer);
             }
             else if (fileType.toLowerCase().includes('3mf') || filePath.toLowerCase().endsWith('.3mf')) {
-                // Use dynamic require to avoid startup ERR_REQUIRE_ESM crashes in restrictive host environments
-                const { ThreeMFLoader } = require('three/examples/jsm/loaders/3MFLoader.js');
-                const BufferGeometryUtils = require('three/examples/jsm/utils/BufferGeometryUtils.js');
+                // Lazy-load 3MF dependencies to avoid crashing the server on startup
+                // TypeScript compiles import() to require() with module:"commonjs",
+                // so we use Function() to get a real ESM dynamic import
+                const dynamicImport = new Function('specifier', 'return import(specifier)');
+                const { ThreeMFLoader } = yield dynamicImport('three/examples/jsm/loaders/3MFLoader.js');
+                const BufferGeometryUtils = yield dynamicImport('three/examples/jsm/utils/BufferGeometryUtils.js');
                 const loader = new ThreeMFLoader();
                 const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
                 const group = loader.parse(arrayBuffer);

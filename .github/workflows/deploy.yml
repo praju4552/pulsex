@@ -50,7 +50,7 @@ jobs:
           sed -i "s/const DEPLOY_DATE = '2024-04-13T11:30:00Z'/const DEPLOY_DATE = '$DEPLOY_DATE'/" server.js
           
           # Inject into app.ts (before transpilation)
-          sed -i "s/version: '1.0.0'/version: '1.1.${{ github.run_id }}'/" backend-node/src/app.ts
+          sed -i "s/version: '1.0.0'/version: '1.2.${{ github.run_id }}'/" backend-node/src/app.ts
           sed -i "s/deployTime: '2024-04-13T11:30:00Z'/deployTime: '$DEPLOY_DATE'/" backend-node/src/app.ts
           sed -i "s/runId: 'local'/runId: '$BUILD_ID'/" backend-node/src/app.ts
           
@@ -98,19 +98,14 @@ jobs:
           cp -r dist/* deploy/public_html/
           [ -f dist/.htaccess ] && cp dist/.htaccess deploy/public_html/ || true
 
-          # Server bootloader
-          # Copy bootloader and tmp
+          # Server bootloader & restart trigger
           cp server.js deploy/
-          mkdir -p deploy/tmp
           date > deploy/tmp/restart.txt
 
           echo "=== Deployment payload ==="
-          du -sh deploy/*/
+          ls -R deploy/
 
       # ── Deploy via FTP (bypasses Hostinger SSH firewall) ──
-      # NOTE: Uses same credentials as SSH. Hostinger shares user/pass
-      # across SSH (port 65002) and FTP (port 21).
-      # If new npm packages are added, run deploy-to-hostinger.ps1 manually.
       - name: Deploy to Hostinger via FTP
         env:
           FTP_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
@@ -119,11 +114,9 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
-          # Create lftp script for reliable deployment
           cat > /tmp/ftp_deploy.sh << 'SCRIPT'
           #!/bin/bash
           set -e
-
           REMOTE_BASE="domains/pulsewritexsolutions.com"
 
           lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" << EOF
@@ -132,33 +125,11 @@ jobs:
             set ftp:ssl-force no
             set net:timeout 30
             set net:max-retries 3
-            set net:reconnect-interval-base 5
             set ftp:ssl-protect-data yes
             set mirror:use-pget-n 1
 
-            echo "=== Uploading backend dist ==="
-            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/backendnode/dist/ ${REMOTE_BASE}/backendnode/dist/
-
-            echo "=== Uploading Prisma schema ==="
-            mirror -R --verbose --only-newer --no-perms deploy/backendnode/prisma/ ${REMOTE_BASE}/backendnode/prisma/
-
-            echo "=== Uploading Prisma client ==="
-            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/backendnode/node_modules/.prisma/ ${REMOTE_BASE}/backendnode/node_modules/.prisma/
-            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/backendnode/node_modules/@prisma/ ${REMOTE_BASE}/backendnode/node_modules/@prisma/
-
-            echo "=== Uploading package files ==="
-            put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package.json
-            put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package-lock.json
-
-            echo "=== Uploading frontend ==="
-            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/public_html/ ${REMOTE_BASE}/public_html/
-
-            echo "=== Uploading server bootloader ==="
-            put -O ${REMOTE_BASE}/ deploy/server.js
-
-            echo "=== Triggering restart ==="
-            mkdir -p ${REMOTE_BASE}/tmp
-            put -O ${REMOTE_BASE}/tmp/ deploy/tmp/restart.txt
+            echo "=== Syncing payload to ${REMOTE_BASE} ==="
+            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/ ${REMOTE_BASE}/
 
             echo "✅ FTP deployment complete!"
             bye

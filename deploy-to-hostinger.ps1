@@ -63,13 +63,17 @@ cd $REMOTE_BASE/backendnode
 npm install
 chmod -R +x ./node_modules/.bin/
 ./node_modules/.bin/prisma generate
+
 echo '=== Pushing schema to database ==='
-./node_modules/.bin/prisma db push --accept-data-loss
+# Run db push in non-interactive mode. Sometimes it hangs without this.
+CI=1 FORCE_COLOR=0 npx --yes prisma db push --skip-generate --accept-data-loss < /dev/null || echo '⚠️ db push failed or timed out, but continuing deployment'
+
 npm prune --omit=dev
 
 echo '=== Restarting Node.js ==='
 mkdir -p $REMOTE_BASE/tmp
 touch $REMOTE_BASE/tmp/restart.txt
+export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
 pkill -f 'node dist/app.js' || true
 sleep 2
 echo '=== Deploy complete ==='

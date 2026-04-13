@@ -116,21 +116,21 @@ jobs:
             set mirror:use-pget-n 5
 
             echo "=== Uploading backend dist ==="
-            mirror -R --verbose --delete --no-perms deploy/backendnode/dist/ ${REMOTE_BASE}/backendnode/dist/
+            mirror -R --verbose --delete --no-perms --parallel=10 deploy/backendnode/dist/ ${REMOTE_BASE}/backendnode/dist/
 
             echo "=== Uploading Prisma schema ==="
-            mirror -R --verbose --no-perms deploy/backendnode/prisma/ ${REMOTE_BASE}/backendnode/prisma/
+            mirror -R --verbose --no-perms --parallel=5 deploy/backendnode/prisma/ ${REMOTE_BASE}/backendnode/prisma/
 
             echo "=== Uploading Prisma client ==="
-            mirror -R --verbose --no-perms deploy/backendnode/node_modules/.prisma/ ${REMOTE_BASE}/backendnode/node_modules/.prisma/
-            mirror -R --verbose --no-perms deploy/backendnode/node_modules/@prisma/ ${REMOTE_BASE}/backendnode/node_modules/@prisma/
+            mirror -R --verbose --no-perms --parallel=10 deploy/backendnode/node_modules/.prisma/ ${REMOTE_BASE}/backendnode/node_modules/.prisma/
+            mirror -R --verbose --no-perms --parallel=10 deploy/backendnode/node_modules/@prisma/ ${REMOTE_BASE}/backendnode/node_modules/@prisma/
 
             echo "=== Uploading package files ==="
             put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package.json
             put -O ${REMOTE_BASE}/backendnode/ deploy/backendnode/package-lock.json
 
             echo "=== Uploading frontend ==="
-            mirror -R --verbose --delete --no-perms deploy/public_html/ ${REMOTE_BASE}/public_html/
+            mirror -R --verbose --delete --no-perms --parallel=10 deploy/public_html/ ${REMOTE_BASE}/public_html/
 
             echo "=== Uploading server bootloader ==="
             put -O ${REMOTE_BASE}/ deploy/server.js || true

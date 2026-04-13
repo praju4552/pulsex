@@ -50,6 +50,50 @@ export default function PrototypingCart() {
     }
   }, []);
 
+  const [selectedAddress, setSelectedAddress] = useState<'primary' | 'secondary' | 'custom'>('primary');
+
+  // Helper to auto-fill shipping from a saved address
+  const selectPrimaryAddress = () => {
+    if (!user) return;
+    setSelectedAddress('primary');
+    setShipping(prev => ({
+      ...prev,
+      address: user.streetAddress || '',
+      apartment: user.apartment || '',
+      city: user.city || '',
+      state: user.state || '',
+      zip: user.zip || '',
+      country: user.country || 'IN',
+    }));
+  };
+
+  const selectSecondaryAddress = () => {
+    if (!user) return;
+    setSelectedAddress('secondary');
+    setShipping(prev => ({
+      ...prev,
+      address: user.secondaryStreetAddress || '',
+      apartment: user.secondaryApartment || '',
+      city: user.secondaryCity || '',
+      state: user.secondaryState || '',
+      zip: user.secondaryZip || '',
+      country: user.secondaryCountry || 'IN',
+    }));
+  };
+
+  const selectCustomAddress = () => {
+    setSelectedAddress('custom');
+    setShipping(prev => ({
+      ...prev,
+      address: '',
+      apartment: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'IN',
+    }));
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [placedOrderRefs, setPlacedOrderRefs] = useState<string[]>([]);
@@ -210,6 +254,11 @@ export default function PrototypingCart() {
     }
   };
 
+  // Check if user has saved addresses to show selector
+  const hasPrimary = !!(user?.streetAddress);
+  const hasSecondary = !!(user?.secondaryStreetAddress);
+  const hasSavedAddresses = hasPrimary || hasSecondary;
+
   return (
     <div className="min-h-screen bg-bg-secondary text-text-primary selection:bg-[#00cc55]/30">
       <PrototypingHeader />
@@ -334,6 +383,71 @@ export default function PrototypingCart() {
                 </div>
                 <h2 className="text-2xl font-bold">Shipping Address</h2>
               </div>
+
+              {/* ── Address Selector Cards ── */}
+              {hasSavedAddresses && (
+                <div className="mb-6">
+                  <p className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-3">Select a saved address</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Primary Address Card */}
+                    {hasPrimary && (
+                      <button
+                        type="button"
+                        onClick={selectPrimaryAddress}
+                        className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+                          selectedAddress === 'primary'
+                            ? 'border-[#00cc55] bg-[#00cc55]/10 shadow-[0_0_20px_rgba(0,204,85,0.15)]'
+                            : 'border-border-glass bg-glass-bg hover:border-[#00cc55]/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[#00cc55]">Primary</span>
+                          {selectedAddress === 'primary' && (
+                            <CheckCircle2 className="w-4 h-4 text-[#00cc55]" />
+                          )}
+                        </div>
+                        <p className="text-sm font-medium text-text-primary truncate">{user?.streetAddress}</p>
+                        <p className="text-xs text-text-secondary truncate">{user?.city}, {user?.state} {user?.zip}</p>
+                      </button>
+                    )}
+
+                    {/* Secondary Address Card */}
+                    {hasSecondary && (
+                      <button
+                        type="button"
+                        onClick={selectSecondaryAddress}
+                        className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+                          selectedAddress === 'secondary'
+                            ? 'border-[#00cc55] bg-[#00cc55]/10 shadow-[0_0_20px_rgba(0,204,85,0.15)]'
+                            : 'border-border-glass bg-glass-bg hover:border-[#00cc55]/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">{user?.secondaryLabel || 'Secondary'}</span>
+                          {selectedAddress === 'secondary' && (
+                            <CheckCircle2 className="w-4 h-4 text-[#00cc55]" />
+                          )}
+                        </div>
+                        <p className="text-sm font-medium text-text-primary truncate">{user?.secondaryStreetAddress}</p>
+                        <p className="text-xs text-text-secondary truncate">{user?.secondaryCity}, {user?.secondaryState} {user?.secondaryZip}</p>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Use Different Address button */}
+                  <button
+                    type="button"
+                    onClick={selectCustomAddress}
+                    className={`mt-3 w-full text-center py-2 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${
+                      selectedAddress === 'custom'
+                        ? 'border-[#00cc55] text-[#00cc55] bg-[#00cc55]/5'
+                        : 'border-border-glass text-text-muted hover:text-text-secondary hover:border-border-glass/80'
+                    }`}
+                  >
+                    {selectedAddress === 'custom' ? '✓ Using custom address' : 'Use a different address'}
+                  </button>
+                </div>
+              )}
               
               <div className="p-6 rounded-2xl border border-border-glass bg-glass-bg backdrop-blur-md space-y-6">
                 <div className="space-y-2">
@@ -341,7 +455,7 @@ export default function PrototypingCart() {
                   <input 
                     type="text" 
                     value={shipping.address}
-                    onChange={e => setShipping({...shipping, address: e.target.value})}
+                    onChange={e => { setShipping({...shipping, address: e.target.value}); setSelectedAddress('custom'); }}
                     className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
                     placeholder="123 Innovation Drive"
                   />
@@ -352,7 +466,7 @@ export default function PrototypingCart() {
                   <input 
                     type="text" 
                     value={shipping.apartment}
-                    onChange={e => setShipping({...shipping, apartment: e.target.value})}
+                    onChange={e => { setShipping({...shipping, apartment: e.target.value}); setSelectedAddress('custom'); }}
                     className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
                     placeholder="Suite 400"
                   />
@@ -364,7 +478,7 @@ export default function PrototypingCart() {
                     <input 
                       type="text" 
                       value={shipping.city}
-                      onChange={e => setShipping({...shipping, city: e.target.value})}
+                      onChange={e => { setShipping({...shipping, city: e.target.value}); setSelectedAddress('custom'); }}
                       className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
                       placeholder="San Francisco"
                     />
@@ -374,7 +488,7 @@ export default function PrototypingCart() {
                     <input 
                       type="text" 
                       value={shipping.state}
-                      onChange={e => setShipping({...shipping, state: e.target.value})}
+                      onChange={e => { setShipping({...shipping, state: e.target.value}); setSelectedAddress('custom'); }}
                       className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
                       placeholder="CA"
                     />
@@ -384,7 +498,7 @@ export default function PrototypingCart() {
                     <input 
                       type="text" 
                       value={shipping.zip}
-                      onChange={e => setShipping({...shipping, zip: e.target.value})}
+                      onChange={e => { setShipping({...shipping, zip: e.target.value}); setSelectedAddress('custom'); }}
                       className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
                       placeholder="94103"
                     />
@@ -395,7 +509,7 @@ export default function PrototypingCart() {
                   <label className="text-sm font-medium text-text-secondary">Country</label>
                   <select 
                     value={shipping.country}
-                    onChange={e => setShipping({...shipping, country: e.target.value})}
+                    onChange={e => { setShipping({...shipping, country: e.target.value}); setSelectedAddress('custom'); }}
                     className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all appearance-none"
                   >
                     <option value="US">United States</option>

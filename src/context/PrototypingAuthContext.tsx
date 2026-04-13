@@ -14,6 +14,13 @@ export interface PrototypingUser {
   state?: string;
   zip?: string;
   country?: string;
+  secondaryLabel?: string;
+  secondaryStreetAddress?: string;
+  secondaryApartment?: string;
+  secondaryCity?: string;
+  secondaryState?: string;
+  secondaryZip?: string;
+  secondaryCountry?: string;
   [key: string]: any;
 }
 

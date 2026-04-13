@@ -31,6 +31,13 @@ export default function PrototypingAccount() {
     state: user?.state || '',
     zip: user?.zip || '',
     country: user?.country || 'IN',
+    secondaryLabel: user?.secondaryLabel || '',
+    secondaryStreetAddress: user?.secondaryStreetAddress || '',
+    secondaryApartment: user?.secondaryApartment || '',
+    secondaryCity: user?.secondaryCity || '',
+    secondaryState: user?.secondaryState || '',
+    secondaryZip: user?.secondaryZip || '',
+    secondaryCountry: user?.secondaryCountry || 'IN',
   });
 
   useEffect(() => {
@@ -185,7 +192,7 @@ export default function PrototypingAccount() {
             <div className="bg-glass-bg border border-border-glass rounded-[2rem] p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-[#00cc55]" /> Shipping Address
+                  <MapPin className="w-5 h-5 text-[#00cc55]" /> Shipping Addresses
                 </h2>
                 {!isEditing && (
                   <button onClick={() => setIsEditing(true)} className="text-[#00cc55] text-xs font-bold hover:underline">Edit</button>
@@ -193,65 +200,161 @@ export default function PrototypingAccount() {
               </div>
 
               {isEditing ? (
-                <div className="space-y-4">
-                  <input 
-                    type="text"
-                    value={formData.streetAddress}
-                    onChange={e => setFormData({...formData, streetAddress: e.target.value})}
-                    placeholder="Street Address"
-                    className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
-                  />
-                  <input 
-                    type="text"
-                    value={formData.apartment}
-                    onChange={e => setFormData({...formData, apartment: e.target.value})}
-                    placeholder="Apartment (Optional)"
-                    className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <input 
-                      type="text"
-                      value={formData.city}
-                      onChange={e => setFormData({...formData, city: e.target.value})}
-                      placeholder="City"
-                      className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
-                    />
-                    <input 
-                      type="text"
-                      value={formData.state}
-                      onChange={e => setFormData({...formData, state: e.target.value})}
-                      placeholder="State"
-                      className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
-                    />
+                <div className="space-y-6">
+                  {/* Primary Address */}
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-[#00cc55] mb-3 flex items-center gap-2">
+                      <span className="w-5 h-5 bg-[#00cc55]/20 rounded-full flex items-center justify-center text-[10px] font-black text-[#00cc55]">1</span>
+                      Primary Address
+                    </p>
+                    <div className="space-y-3">
+                      <input 
+                        type="text"
+                        value={formData.streetAddress}
+                        onChange={e => setFormData({...formData, streetAddress: e.target.value})}
+                        placeholder="Street Address"
+                        className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                      />
+                      <input 
+                        type="text"
+                        value={formData.apartment}
+                        onChange={e => setFormData({...formData, apartment: e.target.value})}
+                        placeholder="Apartment (Optional)"
+                        className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <input 
+                          type="text"
+                          value={formData.city}
+                          onChange={e => setFormData({...formData, city: e.target.value})}
+                          placeholder="City"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                        <input 
+                          type="text"
+                          value={formData.state}
+                          onChange={e => setFormData({...formData, state: e.target.value})}
+                          placeholder="State"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input 
+                          type="text"
+                          value={formData.zip}
+                          onChange={e => setFormData({...formData, zip: e.target.value})}
+                          placeholder="ZIP"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                        <input 
+                          type="text"
+                          value={formData.country}
+                          onChange={e => setFormData({...formData, country: e.target.value})}
+                          placeholder="Country"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input 
-                      type="text"
-                      value={formData.zip}
-                      onChange={e => setFormData({...formData, zip: e.target.value})}
-                      placeholder="ZIP"
-                      className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
-                    />
-                    <input 
-                      type="text"
-                      value={formData.country}
-                      onChange={e => setFormData({...formData, country: e.target.value})}
-                      placeholder="Country"
-                      className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
-                    />
+
+                  <div className="border-t border-border-glass" />
+
+                  {/* Secondary Address */}
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-text-secondary mb-3 flex items-center gap-2">
+                      <span className="w-5 h-5 bg-white/10 rounded-full flex items-center justify-center text-[10px] font-black text-text-secondary">2</span>
+                      Secondary Address
+                    </p>
+                    <div className="space-y-3">
+                      <input 
+                        type="text"
+                        value={formData.secondaryLabel}
+                        onChange={e => setFormData({...formData, secondaryLabel: e.target.value})}
+                        placeholder="Label (e.g. Office, Warehouse)"
+                        className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                      />
+                      <input 
+                        type="text"
+                        value={formData.secondaryStreetAddress}
+                        onChange={e => setFormData({...formData, secondaryStreetAddress: e.target.value})}
+                        placeholder="Street Address"
+                        className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                      />
+                      <input 
+                        type="text"
+                        value={formData.secondaryApartment}
+                        onChange={e => setFormData({...formData, secondaryApartment: e.target.value})}
+                        placeholder="Apartment (Optional)"
+                        className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <input 
+                          type="text"
+                          value={formData.secondaryCity}
+                          onChange={e => setFormData({...formData, secondaryCity: e.target.value})}
+                          placeholder="City"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                        <input 
+                          type="text"
+                          value={formData.secondaryState}
+                          onChange={e => setFormData({...formData, secondaryState: e.target.value})}
+                          placeholder="State"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input 
+                          type="text"
+                          value={formData.secondaryZip}
+                          onChange={e => setFormData({...formData, secondaryZip: e.target.value})}
+                          placeholder="ZIP"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                        <input 
+                          type="text"
+                          value={formData.secondaryCountry}
+                          onChange={e => setFormData({...formData, secondaryCountry: e.target.value})}
+                          placeholder="Country"
+                          className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ) : user.streetAddress ? (
-                <div className="space-y-1 text-text-secondary text-sm">
-                  <p className="text-text-primary font-medium">{user.streetAddress}</p>
-                  {user.apartment && <p>{user.apartment}</p>}
-                  <p>{user.city}, {user.state} {user.zip}</p>
-                  <p className="text-text-muted uppercase tracking-widest text-[10px] pt-1">{user.country}</p>
                 </div>
               ) : (
-                <div className="text-center py-6 border border-dashed border-border-glass rounded-2xl">
-                  <p className="text-text-muted text-xs mb-3">No address saved yet</p>
-                  <button onClick={() => setIsEditing(true)} className="text-[#00cc55] text-xs font-black uppercase tracking-wider">Add Address</button>
+                <div className="space-y-4">
+                  {/* Primary Address Display */}
+                  {user.streetAddress ? (
+                    <div className="p-4 rounded-xl border border-[#00cc55]/20 bg-[#00cc55]/5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#00cc55] mb-2">Primary</p>
+                      <p className="text-text-primary font-medium text-sm">{user.streetAddress}</p>
+                      {user.apartment && <p className="text-text-secondary text-sm">{user.apartment}</p>}
+                      <p className="text-text-secondary text-sm">{user.city}, {user.state} {user.zip}</p>
+                      <p className="text-text-muted uppercase tracking-widest text-[10px] pt-1">{user.country}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 border border-dashed border-border-glass rounded-xl">
+                      <p className="text-text-muted text-xs mb-2">No primary address</p>
+                      <button onClick={() => setIsEditing(true)} className="text-[#00cc55] text-xs font-black uppercase tracking-wider">Add Address</button>
+                    </div>
+                  )}
+
+                  {/* Secondary Address Display */}
+                  {user.secondaryStreetAddress ? (
+                    <div className="p-4 rounded-xl border border-border-glass bg-white/[0.02]">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-text-secondary mb-2">{user.secondaryLabel || 'Secondary'}</p>
+                      <p className="text-text-primary font-medium text-sm">{user.secondaryStreetAddress}</p>
+                      {user.secondaryApartment && <p className="text-text-secondary text-sm">{user.secondaryApartment}</p>}
+                      <p className="text-text-secondary text-sm">{user.secondaryCity}, {user.secondaryState} {user.secondaryZip}</p>
+                      <p className="text-text-muted uppercase tracking-widest text-[10px] pt-1">{user.secondaryCountry}</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 border border-dashed border-border-glass rounded-xl">
+                      <p className="text-text-muted text-xs mb-2">No secondary address</p>
+                      <button onClick={() => setIsEditing(true)} className="text-[#00cc55] text-xs font-black uppercase tracking-wider">Add Address</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

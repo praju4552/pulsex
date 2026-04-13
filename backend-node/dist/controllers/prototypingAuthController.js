@@ -170,7 +170,7 @@ exports.googleLogin = googleLogin;
 const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { name, phone, streetAddress, apartment, city, state, zip, country } = req.body;
+        const { name, phone, streetAddress, apartment, city, state, zip, country, secondaryLabel, secondaryStreetAddress, secondaryApartment, secondaryCity, secondaryState, secondaryZip, secondaryCountry } = req.body;
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Authentication required' });
@@ -185,7 +185,14 @@ const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 city,
                 state,
                 zip,
-                country
+                country,
+                secondaryLabel,
+                secondaryStreetAddress,
+                secondaryApartment,
+                secondaryCity,
+                secondaryState,
+                secondaryZip,
+                secondaryCountry
             }
         });
         const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);

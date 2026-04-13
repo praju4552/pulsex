@@ -187,7 +187,12 @@ export const googleLogin = async (req: Request, res: Response) => {
  */
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { name, phone, streetAddress, apartment, city, state, zip, country } = req.body;
+        const { 
+            name, phone, 
+            streetAddress, apartment, city, state, zip, country,
+            secondaryLabel, secondaryStreetAddress, secondaryApartment, 
+            secondaryCity, secondaryState, secondaryZip, secondaryCountry 
+        } = req.body;
 
         const userId = (req.user as any)?.userId;
         if (!userId) {
@@ -204,7 +209,14 @@ export const updateProfile = async (req: Request, res: Response) => {
                 city,
                 state,
                 zip,
-                country
+                country,
+                secondaryLabel,
+                secondaryStreetAddress,
+                secondaryApartment,
+                secondaryCity,
+                secondaryState,
+                secondaryZip,
+                secondaryCountry
             }
         });
 

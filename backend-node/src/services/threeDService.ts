@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import fs from 'fs';
 
 export interface MeshMetadata {
@@ -12,26 +10,29 @@ export interface MeshMetadata {
   estimatedPrintTime: number;
 }
 
+// Use Function() constructor to get a real ESM dynamic import()
+// that TypeScript won't transform into require() during CommonJS compilation.
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+
 export class ThreeDService {
   /**
    * Processes a 3D file and extracts metadata.
    * Supports STL and 3MF.
+   * All three.js imports are lazy-loaded to prevent server crash on startup.
    */
   static async getMetadata(filePath: string, fileType: string): Promise<MeshMetadata> {
+    // Lazy-load three.js core only when actually processing a file
+    const THREE = await dynamicImport('three');
     const data = fs.readFileSync(filePath);
     
-    let geometry: THREE.BufferGeometry;
+    let geometry: any; // THREE.BufferGeometry
 
     if (fileType.toLowerCase().includes('stl') || filePath.toLowerCase().endsWith('.stl')) {
+      const { STLLoader } = await dynamicImport('three/examples/jsm/loaders/STLLoader.js');
       const loader = new STLLoader();
-      // STLLoader.parse expects an ArrayBuffer
       const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
       geometry = loader.parse(arrayBuffer);
     } else if (fileType.toLowerCase().includes('3mf') || filePath.toLowerCase().endsWith('.3mf')) {
-      // Lazy-load 3MF dependencies to avoid crashing the server on startup
-      // TypeScript compiles import() to require() with module:"commonjs",
-      // so we use Function() to get a real ESM dynamic import
-      const dynamicImport = new Function('specifier', 'return import(specifier)');
       const { ThreeMFLoader } = await dynamicImport('three/examples/jsm/loaders/3MFLoader.js');
       const BufferGeometryUtils = await dynamicImport('three/examples/jsm/utils/BufferGeometryUtils.js');
       
@@ -39,14 +40,13 @@ export class ThreeDService {
       const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
       const group = loader.parse(arrayBuffer);
       
-      const geometries: THREE.BufferGeometry[] = [];
+      const geometries: any[] = [];
       group.traverse((child: any) => {
         if (child.isMesh) {
-          const mesh = child as THREE.Mesh;
-          if (mesh.geometry) {
-            mesh.updateMatrixWorld();
-            const geom = (mesh.geometry as THREE.BufferGeometry).clone();
-            geom.applyMatrix4(mesh.matrixWorld);
+          if (child.geometry) {
+            child.updateMatrixWorld();
+            const geom = child.geometry.clone();
+            geom.applyMatrix4(child.matrixWorld);
             geometries.push(geom);
           }
         }
@@ -60,9 +60,8 @@ export class ThreeDService {
       if (!merged) {
         throw new Error('Failed to merge 3MF geometries.');
       }
-      geometry = merged as THREE.BufferGeometry;
+      geometry = merged;
     } else {
-       // Placeholder for OBJ/STEP
        throw new Error(`Unsupported file type for metadata extraction: ${fileType}. Please use STL or 3MF.`);
     }
 
@@ -70,11 +69,11 @@ export class ThreeDService {
        // If not indexed, we can still calculate
     }
 
-    const metadata = this.calculateMetadata(geometry);
+    const metadata = this.calculateMetadata(geometry, THREE);
     return metadata;
   }
 
-  private static calculateMetadata(geometry: THREE.BufferGeometry): MeshMetadata {
+  private static calculateMetadata(geometry: any, THREE: any): MeshMetadata {
     // 1. Triangle Count
     const positionAttribute = geometry.getAttribute('position');
     const triangleCount = positionAttribute.count / 3;
@@ -110,7 +109,6 @@ export class ThreeDService {
     }
 
     // 4. Estimated Print Time (Very basic heuristic: Volume based)
-    // Assume 10mm3 per second for standard printing + some overhead
     const estimatedPrintTime = (Math.abs(volume) / 10) / 60 + 30; // Minutes
 
     return {

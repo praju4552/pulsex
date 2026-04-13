@@ -146,8 +146,13 @@ const getAllOrders = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                     ((_d = o.email) === null || _d === void 0 ? void 0 : _d.toLowerCase().includes(s));
             });
         }
-        if (status && status !== 'all')
+        if (status && status !== 'all') {
             allOrders = allOrders.filter(o => o.orderStatus === status);
+        }
+        else {
+            // By default, hide PENDING orders (abandoned checkouts without payment) to declutter the admin panel
+            allOrders = allOrders.filter(o => o.orderStatus !== 'PENDING');
+        }
         if (payment && payment !== 'all')
             allOrders = allOrders.filter(o => o.paymentStatus === payment);
         const total = allOrders.length;

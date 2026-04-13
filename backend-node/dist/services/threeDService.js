@@ -48,25 +48,52 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ThreeDService = void 0;
 const THREE = __importStar(require("three"));
 const STLLoader_js_1 = require("three/examples/jsm/loaders/STLLoader.js");
+const _3MFLoader_js_1 = require("three/examples/jsm/loaders/3MFLoader.js");
+const BufferGeometryUtils = __importStar(require("three/examples/jsm/utils/BufferGeometryUtils.js"));
 const fs_1 = __importDefault(require("fs"));
 class ThreeDService {
     /**
      * Processes a 3D file and extracts metadata.
-     * Supports STL for now.
+     * Supports STL and 3MF.
      */
     static getMetadata(filePath, fileType) {
         return __awaiter(this, void 0, void 0, function* () {
             const data = fs_1.default.readFileSync(filePath);
             let geometry;
-            if (fileType.toLowerCase().includes('stl')) {
+            if (fileType.toLowerCase().includes('stl') || filePath.toLowerCase().endsWith('.stl')) {
                 const loader = new STLLoader_js_1.STLLoader();
                 // STLLoader.parse expects an ArrayBuffer
                 const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
                 geometry = loader.parse(arrayBuffer);
             }
+            else if (fileType.toLowerCase().includes('3mf') || filePath.toLowerCase().endsWith('.3mf')) {
+                const loader = new _3MFLoader_js_1.ThreeMFLoader();
+                const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+                const group = loader.parse(arrayBuffer);
+                const geometries = [];
+                group.traverse((child) => {
+                    if (child.isMesh) {
+                        const mesh = child;
+                        if (mesh.geometry) {
+                            mesh.updateMatrixWorld();
+                            const geom = mesh.geometry.clone();
+                            geom.applyMatrix4(mesh.matrixWorld);
+                            geometries.push(geom);
+                        }
+                    }
+                });
+                if (geometries.length === 0) {
+                    throw new Error('No valid meshes found in 3MF file.');
+                }
+                const merged = BufferGeometryUtils.mergeGeometries(geometries, false);
+                if (!merged) {
+                    throw new Error('Failed to merge 3MF geometries.');
+                }
+                geometry = merged;
+            }
             else {
-                // Placeholder for OBJ/3MF/STEP
-                throw new Error(`Unsupported file type for metadata extraction: ${fileType}`);
+                // Placeholder for OBJ/STEP
+                throw new Error(`Unsupported file type for metadata extraction: ${fileType}. Please use STL or 3MF.`);
             }
             if (!geometry.index && geometry.attributes.position) {
                 // If not indexed, we can still calculate

@@ -266,6 +266,7 @@ function trackPrototypingOrder(req, res) {
             const order = yield db_1.default.prototypingOrder.findUnique({
                 where: { orderRef },
                 select: {
+                    id: true,
                     orderRef: true,
                     orderStatus: true,
                     paymentStatus: true,

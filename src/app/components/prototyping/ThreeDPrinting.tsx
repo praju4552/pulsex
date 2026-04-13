@@ -10,6 +10,10 @@ import { API_BASE_URL } from '../../../api/config';
 // @ts-ignore
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 // @ts-ignore
+import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader';
+// @ts-ignore
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
+// @ts-ignore
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 // Constants for pricing
@@ -764,34 +768,58 @@ function ThreeDViewer({
     sliceVisualPlaneRef.current = sliceVisual;
 
     // Load Model
-    const loader = new STLLoader();
     const reader = new FileReader();
     
     reader.onload = (e) => {
       const contents = e.target?.result as ArrayBuffer;
-      let geometry = loader.parse(contents);
+      let geometry: THREE.BufferGeometry | null = null;
+      const is3MF = file.name.toLowerCase().endsWith('.3mf');
       
-      const material = new THREE.MeshStandardMaterial({ 
-        color: modelColor, 
-        roughness: 0.4, 
-        metalness: 0.1,
-        clippingPlanes: [clippingPlaneRef.current],
-        clipShadows: true
-      });
+      try {
+          if (is3MF) {
+              const loader = new ThreeMFLoader();
+              const group = loader.parse(contents);
+              const geometries: THREE.BufferGeometry[] = [];
+              group.traverse((child: any) => {
+                  if (child.isMesh && child.geometry) {
+                      child.updateMatrixWorld();
+                      const geom = child.geometry.clone();
+                      geom.applyMatrix4(child.matrixWorld);
+                      geometries.push(geom);
+                  }
+              });
+              geometry = BufferGeometryUtils.mergeGeometries(geometries, false);
+          } else {
+              const loader = new STLLoader();
+              geometry = loader.parse(contents);
+          }
+      } catch (err) {
+          console.error("Failed to parse 3D file:", err);
+      }
       
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      meshRef.current = mesh;
+      if (geometry) {
+          const material = new THREE.MeshStandardMaterial({ 
+            color: modelColor, 
+            roughness: 0.4, 
+            metalness: 0.1,
+            clippingPlanes: [clippingPlaneRef.current],
+            clipShadows: true
+          });
+          
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          meshRef.current = mesh;
 
-      // Initial centering & positioning on build plate
-      centerAndFrameModel(mesh, camera, controls);
-      
-      scene.add(mesh);
+          // Initial centering & positioning on build plate
+          centerAndFrameModel(mesh, camera, controls);
+          
+          scene.add(mesh);
+      }
       setLoading(false);
     };
 
-    if (file.name.toLowerCase().endsWith('.stl')) {
+    if (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.3mf')) {
         reader.readAsArrayBuffer(file);
     } else {
         setLoading(false);

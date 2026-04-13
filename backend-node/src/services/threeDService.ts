@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import fs from 'fs';
 
 export interface MeshMetadata {
@@ -30,13 +28,17 @@ export class ThreeDService {
       const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
       geometry = loader.parse(arrayBuffer);
     } else if (fileType.toLowerCase().includes('3mf') || filePath.toLowerCase().endsWith('.3mf')) {
+      // Use dynamic require to avoid startup ERR_REQUIRE_ESM crashes in restrictive host environments
+      const { ThreeMFLoader } = require('three/examples/jsm/loaders/3MFLoader.js');
+      const BufferGeometryUtils = require('three/examples/jsm/utils/BufferGeometryUtils.js');
+      
       const loader = new ThreeMFLoader();
       const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
       const group = loader.parse(arrayBuffer);
       
       const geometries: THREE.BufferGeometry[] = [];
-      group.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
+      group.traverse((child: any) => {
+        if (child.isMesh) {
           const mesh = child as THREE.Mesh;
           if (mesh.geometry) {
             mesh.updateMatrixWorld();
@@ -55,7 +57,7 @@ export class ThreeDService {
       if (!merged) {
         throw new Error('Failed to merge 3MF geometries.');
       }
-      geometry = merged;
+      geometry = merged as THREE.BufferGeometry;
     } else {
        // Placeholder for OBJ/STEP
        throw new Error(`Unsupported file type for metadata extraction: ${fileType}. Please use STL or 3MF.`);

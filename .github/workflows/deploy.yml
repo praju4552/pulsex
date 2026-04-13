@@ -38,11 +38,26 @@ jobs:
           echo "✅ All secrets are set."
 
       # ── Build Backend ──
-      - name: Build backend
+      - name: Inject Build ID and Build Backend
         run: |
+          BUILD_ID="RUN_${{ github.run_id }}"
+          DEPLOY_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          echo "=== Injecting Build Info: $BUILD_ID ($DEPLOY_DATE) ==="
+          
+          # Inject into server.js
+          sed -i "s/const BUILD_ID = 'LOCAL_DEV'/const BUILD_ID = '$BUILD_ID'/" server.js
+          sed -i "s/const DEPLOY_DATE = '2024-04-13T11:30:00Z'/const DEPLOY_DATE = '$DEPLOY_DATE'/" server.js
+          
+          # Inject into app.ts (before transpilation)
+          sed -i "s/version: '1.0.0'/version: '1.1.${{ github.run_id }}'/" backend-node/src/app.ts
+          sed -i "s/deployTime: '2024-04-13T11:30:00Z'/deployTime: '$DEPLOY_DATE'/" backend-node/src/app.ts
+          sed -i "s/runId: 'local'/runId: '$BUILD_ID'/" backend-node/src/app.ts
+          
           cd backend-node
           npm install
           npm run build
+          cd ..
 
       # ── Generate Prisma client (linux-x64, same as Hostinger) ──
       - name: Generate Prisma client
@@ -84,11 +99,10 @@ jobs:
           [ -f dist/.htaccess ] && cp dist/.htaccess deploy/public_html/ || true
 
           # Server bootloader
-          touch deploy/server.js
-          [ -f server.js ] && cp server.js deploy/ || true
-
-          # Restart marker
-          touch deploy/tmp/restart.txt
+          # Copy bootloader and tmp
+          cp server.js deploy/
+          mkdir -p deploy/tmp
+          date > deploy/tmp/restart.txt
 
           echo "=== Deployment payload ==="
           du -sh deploy/*/

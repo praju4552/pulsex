@@ -5,6 +5,12 @@
 const path = require('path');
 const fs = require('fs');
 
+// [BUILD_SIGNATURE_INJECT]
+const BUILD_ID = 'LOCAL_DEV';
+const DEPLOY_DATE = '2024-04-13T11:30:00Z';
+
+console.log(`[BOOT] PulseX Bootloader v2 | ID: ${BUILD_ID} | Date: ${DEPLOY_DATE}`);
+
 const entry = path.join(__dirname, 'backendnode', 'dist', 'app.js');
 const logPath = path.join(__dirname, 'public_html', 'error_log.txt');
 
@@ -25,7 +31,7 @@ try {
   }
 } catch (e) {}
 
-logError(`Starting boot from: ${entry}`);
+logError(`Starting boot from: ${entry} (Build: ${BUILD_ID})`);
 
 if (fs.existsSync(entry)) {
   try {

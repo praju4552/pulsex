@@ -62,11 +62,17 @@ const authLimiter = rateLimit({
     message: { error: 'Too many attempts, try again in 15 minutes.' }
 });
 
+// build-inject-point (Do not remove this comment)
+const BUILD_INFO = {
+    version: '1.0.0',
+    deployTime: '2024-04-13T11:30:00Z',
+    runId: 'local'
+};
+
 // System Health & Diagnostics Endpoint
 app.get('/health', async (_req, res) => {
     let threeAvailable = false;
     try {
-        // Just check if we can resolve it, don't load the whole thing
         require.resolve('three');
         threeAvailable = true;
     } catch (e) {}
@@ -75,11 +81,13 @@ app.get('/health', async (_req, res) => {
         status: 'ok', 
         timestamp: new Date().toISOString(),
         service: 'PulseX Prototyping Backend',
+        build: BUILD_INFO,
         diagnostics: {
-            threejs: threeAvailable ? 'available' : 'missing (lazy-load will fail)',
+            threejs: threeAvailable ? 'available' : 'missing',
             node_version: process.version,
             cwd: process.cwd(),
-            dirname: __dirname
+            dirname: __dirname,
+            env_path: envPath
         }
     });
 });
@@ -118,7 +126,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 🌐 Serve Static Frontend (Fallback for Hostinger Passenger)
 // This ensures the main domain works even if Passenger hijacks the root.
-const publicPath = path.join(__dirname, '..', '..', 'public_html');
+const publicPath = (function() {
+    const paths = [
+        path.join(__dirname, '..', '..', 'public_html'), // backendnode/dist -> public_html
+        path.join(process.cwd(), 'public_html'),         // root -> public_html
+        path.join(__dirname, '..', 'public_html')       // backendnode -> public_html
+    ];
+    return paths.find(p => fs.existsSync(p)) || paths[0];
+})();
+
+console.log(`[BOOT] Serving static files from: ${publicPath}`);
 app.use(express.static(publicPath));
 
 // Static uploads disabled for security - streaming via auth routes now

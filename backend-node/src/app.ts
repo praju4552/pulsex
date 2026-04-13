@@ -77,17 +77,30 @@ app.get('/health', async (_req, res) => {
         threeAvailable = true;
     } catch (e) {}
 
+    const logPath = path.join(__dirname, '..', '..', 'public_html', 'error_log.txt');
+    let recentLogs = "Log file not found";
+    try {
+        if (fs.existsSync(logPath)) {
+            const content = fs.readFileSync(logPath, 'utf8');
+            recentLogs = content.split('\n').slice(-50).join('\n');
+        }
+    } catch (e) {
+        recentLogs = `Error reading log: ${e.message}`;
+    }
+
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
         service: 'PulseX Prototyping Backend',
         build: BUILD_INFO,
+        recentLogs: recentLogs,
         diagnostics: {
             threejs: threeAvailable ? 'available' : 'missing',
             node_version: process.version,
             cwd: process.cwd(),
             dirname: __dirname,
-            env_path: envPath
+            env_path: envPath,
+            public_path: publicPath
         }
     });
 });

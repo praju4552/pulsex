@@ -66,24 +66,44 @@ const authLimiter = (0, express_rate_limit_1.default)({
     max: 10, // 10 requests max per window
     message: { error: 'Too many attempts, try again in 15 minutes.' }
 });
+// build-inject-point (Do not remove this comment)
+const BUILD_INFO = {
+    version: '1.0.0',
+    deployTime: '2024-04-13T11:30:00Z',
+    runId: 'local'
+};
 // System Health & Diagnostics Endpoint
 app.get('/health', (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     let threeAvailable = false;
     try {
-        // Just check if we can resolve it, don't load the whole thing
         require.resolve('three');
         threeAvailable = true;
     }
     catch (e) { }
+    const logPath = path_1.default.join(__dirname, '..', '..', 'public_html', 'error_log.txt');
+    let recentLogs = "Log file not found";
+    try {
+        if (fs_1.default.existsSync(logPath)) {
+            const content = fs_1.default.readFileSync(logPath, 'utf8');
+            recentLogs = content.split('\n').slice(-50).join('\n');
+        }
+    }
+    catch (e) {
+        recentLogs = `Error reading log: ${e.message}`;
+    }
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
         service: 'PulseX Prototyping Backend',
+        build: BUILD_INFO,
+        recentLogs: recentLogs,
         diagnostics: {
-            threejs: threeAvailable ? 'available' : 'missing (lazy-load will fail)',
+            threejs: threeAvailable ? 'available' : 'missing',
             node_version: process.version,
             cwd: process.cwd(),
-            dirname: __dirname
+            dirname: __dirname,
+            env_path: envPath,
+            public_path: publicPath
         }
     });
 }));
@@ -117,7 +137,15 @@ app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
 // 🌐 Serve Static Frontend (Fallback for Hostinger Passenger)
 // This ensures the main domain works even if Passenger hijacks the root.
-const publicPath = path_1.default.join(__dirname, '..', '..', 'public_html');
+const publicPath = (function () {
+    const paths = [
+        path_1.default.join(__dirname, '..', '..', 'public_html'), // backendnode/dist -> public_html
+        path_1.default.join(process.cwd(), 'public_html'), // root -> public_html
+        path_1.default.join(__dirname, '..', 'public_html') // backendnode -> public_html
+    ];
+    return paths.find(p => fs_1.default.existsSync(p)) || paths[0];
+})();
+console.log(`[BOOT] Serving static files from: ${publicPath}`);
 app.use(express_1.default.static(publicPath));
 // Static uploads disabled for security - streaming via auth routes now
 // Core Routes

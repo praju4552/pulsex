@@ -60,18 +60,10 @@ jobs:
           cd ..
 
       # ── Generate Prisma client (linux-x64, same as Hostinger) ──
-      - name: Generate Prisma client and push schema
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Generate Prisma client
         run: |
           cd backend-node
           npx prisma generate
-          if [ -n "$DATABASE_URL" ]; then
-            echo "=== Pushing schema to production database ==="
-            npx prisma db push --accept-data-loss
-          else
-            echo "⚠️  DATABASE_URL not set, skipping db push"
-          fi
 
       # ── Build Frontend ──
       - name: Build Frontend

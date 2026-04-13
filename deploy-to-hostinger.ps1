@@ -63,6 +63,8 @@ cd $REMOTE_BASE/backendnode
 npm install
 chmod -R +x ./node_modules/.bin/
 ./node_modules/.bin/prisma generate
+echo '=== Pushing schema to database ==='
+./node_modules/.bin/prisma db push --accept-data-loss
 npm prune --omit=dev
 
 echo '=== Restarting Node.js ==='

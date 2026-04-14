@@ -77,15 +77,22 @@ app.get('/health', async (_req, res) => {
         threeAvailable = true;
     } catch (e) {}
 
-    const logPath = path.join(__dirname, '..', '..', 'public_html', 'error_log.txt');
-    let recentLogs = "Log file not found";
+    const potentialLogPaths = [
+        path.join(__dirname, '..', '..', 'public_html', 'error_log.txt'),
+        path.join('/home/u655334071/domains/pulsewritexsolutions.com', 'logs', 'error_log'),
+        path.join('/home/u655334071/domains/pulsewritexsolutions.com', 'passenger.log'),
+        path.join('/home/u655334071/domains/pulsewritexsolutions.com', 'public_html', 'error_log')
+    ];
+    let recentLogs = "";
     try {
-        if (fs.existsSync(logPath)) {
-            const content = fs.readFileSync(logPath, 'utf8');
-            recentLogs = content.split('\n').slice(-50).join('\n');
+        for (const lp of potentialLogPaths) {
+            if (fs.existsSync(lp)) {
+                recentLogs += `\n--- ${lp} ---\n` + fs.readFileSync(lp, 'utf8').slice(-1500);
+            }
         }
+        if (!recentLogs) recentLogs = "No log files found.";
     } catch (e) {
-        recentLogs = `Error reading log: ${e.message}`;
+        recentLogs += `\nError reading log: ${e.message}`;
     }
 
     res.json({ 

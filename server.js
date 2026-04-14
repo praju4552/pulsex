@@ -24,6 +24,14 @@ function logError(message) {
   }
 }
 
+process.on('uncaughtException', (err) => {
+  logError(`[UNCAUGHT EXCEPTION] ${err.message}\n${err.stack}`);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logError(`[UNHANDLED REJECTION] ${reason}`);
+});
+
 // Clear old log at startup to avoid confusion
 try {
   if (fs.existsSync(logPath)) {

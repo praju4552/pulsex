@@ -1,71 +1,107 @@
-name: Build PulseX
+name: Deploy to Hostinger
 
 on:
   push:
     branches: [main]
 
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
         with:
-          node-version: '22'
+          node-version: '18'
 
-      # ── Verify secrets exist before wasting build time ──
-      - name: Verify deployment secrets
-        env:
-          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-          SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
-          SSH_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+      - name: Build backend
         run: |
-          echo "SSH_HOST length: ${#SSH_HOST}"
-          echo "SSH_USER length: ${#SSH_USER}"
-          echo "SSH_PASS length: ${#SSH_PASS}"
-          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_PASS" ]; then
-            echo "::error::One or more deployment secrets are empty!"
-            echo "Required secrets: HOSTINGER_SSH_HOST, HOSTINGER_SSH_USER, HOSTINGER_SSH_PASSWORD"
-            exit 1
-          fi
-          echo "✅ All secrets are set."
-
-      # ── Build Backend ──
-      - name: Inject Build ID and Build Backend
-        run: |
-          BUILD_ID="RUN_${{ github.run_id }}"
-          DEPLOY_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          
-          echo "=== Injecting Build Info: $BUILD_ID ($DEPLOY_DATE) ==="
-          
-          # Inject into server.js
-          sed -i "s/const BUILD_ID = 'LOCAL_DEV'/const BUILD_ID = '$BUILD_ID'/" server.js
-          sed -i "s/const DEPLOY_DATE = '2024-04-13T11:30:00Z'/const DEPLOY_DATE = '$DEPLOY_DATE'/" server.js
-          
-          # Inject into app.ts (before transpilation)
-          sed -i "s/version: '1.0.0'/version: '1.2.${{ github.run_id }}'/" backend-node/src/app.ts
-          sed -i "s/deployTime: '2024-04-13T11:30:00Z'/deployTime: '$DEPLOY_DATE'/" backend-node/src/app.ts
-          sed -i "s/runId: 'local'/runId: '$BUILD_ID'/" backend-node/src/app.ts
-          
           cd backend-node
           npm install
           npm run build
-          cd ..
 
-      # ── Generate Prisma client (linux-x64, same as Hostinger) ──
-      - name: Generate Prisma client
-        run: |
-          cd backend-node
-          npx prisma generate
+      # Step 1: Clean old dist on server BEFORE uploading new files
+      - name: Clean old dist on server
+        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        continue-on-error: true
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          script: |
+            rm -rf ~/domains/pulsewritexsolutions.com/backendnode/dist || true
+            rm -rf ~/domains/pulsewritexsolutions.com/nodejs/backend-node/dist || true
+            echo "=== Old dist cleaned ==="
 
-      # ── Build Frontend ──
+      # Step 2: Upload new compiled backend
+      - name: Deploy Root Server Bootloader
+        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "server.js"
+          target: "~/domains/pulsewritexsolutions.com/"
+          overwrite: true
+
+      - name: Deploy Backend (primary - backendnode)
+        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          target: "~/domains/pulsewritexsolutions.com/backendnode"
+          strip_components: 1
+          overwrite: true
+
+      - name: Deploy Backend (secondary - nodejs)
+        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
+          strip_components: 1
+          overwrite: true
+
+      # Step 3: Install deps, sync DB schema, seed admin, restart
+      - name: Install deps, sync DB, seed admin and restart
+        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          script: |
+            export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
+            echo "=== Installing dependencies (primary) ==="
+            cd ~/domains/pulsewritexsolutions.com/backendnode
+            npm install --omit=dev 2>/dev/null || true
+            ./node_modules/.bin/prisma generate || true
+            ./node_modules/.bin/prisma db push --accept-data-loss 2>&1 | tail -5 || true
+            chmod -R +x ./node_modules/.bin/ || true
+            echo "=== Installing dependencies (secondary) ==="
+            cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
+            npm install --omit=dev 2>/dev/null || true
+            ./node_modules/.bin/prisma generate || true
+            chmod -R +x ./node_modules/.bin/ || true
+            echo "=== Seeding admin account ==="
+            cd ~/domains/pulsewritexsolutions.com/backendnode
+            node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h,name:'Pulse X Admin'}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'Pulse X Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}await p.\$disconnect()}catch(err){console.error('Seed error:',err.message)}})();" || true
+            echo "=== Restarting Node.js ==="
+            killall -9 node 2>/dev/null || true
+            sleep 2
+            echo "=== Deploy complete ==="
+
+      # Step 4: Build and deploy frontend
       - name: Build Frontend
         env:
           VITE_API_URL: https://api.pulsewritexsolutions.com
@@ -75,66 +111,32 @@ jobs:
           npm install
           npm run build
 
-      # ── Prepare deployment payload ──
-      - name: Prepare deployment files
-        run: |
-          mkdir -p deploy/backendnode/dist
-          mkdir -p deploy/backendnode/prisma
-          mkdir -p deploy/backendnode/node_modules
-          mkdir -p deploy/public_html
-          mkdir -p deploy/tmp
+      - name: Deploy Frontend to Hostinger
+        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "dist/*"
+          target: "~/domains/pulsewritexsolutions.com/public_html"
+          strip_components: 1
+          overwrite: true
 
-          # Backend compiled code
-          cp -r backend-node/dist/* deploy/backendnode/dist/
-          cp -r backend-node/prisma/* deploy/backendnode/prisma/
-          cp backend-node/package.json deploy/backendnode/
-          cp backend-node/package-lock.json deploy/backendnode/
-
-          # Prisma generated client (built for linux-x64 on this runner)
-          cp -r backend-node/node_modules/.prisma deploy/backendnode/node_modules/
-          cp -r backend-node/node_modules/@prisma deploy/backendnode/node_modules/
-
-          # Frontend
-          cp -r dist/* deploy/public_html/
-          [ -f dist/.htaccess ] && cp dist/.htaccess deploy/public_html/ || true
-
-          # Server bootloader & restart trigger
-          cp server.js deploy/
-          date > deploy/tmp/restart.txt
-
-          echo "=== Deployment payload ==="
-          ls -R deploy/
-
-      # ── Deploy via FTP (bypasses Hostinger SSH firewall) ──
-      - name: Deploy to Hostinger via FTP
-        env:
-          FTP_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-          FTP_USER: ${{ secrets.HOSTINGER_SSH_USER }}
-          FTP_PASS: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
-
-          cat > /tmp/ftp_deploy.sh << 'SCRIPT'
-          #!/bin/bash
-          set -e
-          REMOTE_BASE="domains/pulsewritexsolutions.com"
-
-          lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" << EOF
-            set ssl:verify-certificate no
-            set ftp:ssl-allow yes
-            set ftp:ssl-force no
-            set net:timeout 30
-            set net:max-retries 3
-            set ftp:ssl-protect-data yes
-            set mirror:use-pget-n 1
-
-            echo "=== Syncing payload to ${REMOTE_BASE} ==="
-            mirror -R --verbose --only-newer --no-perms --parallel=2 deploy/ ${REMOTE_BASE}/
-
-            echo "✅ FTP deployment complete!"
-            bye
-          EOF
-          SCRIPT
-
-          chmod +x /tmp/ftp_deploy.sh
-          bash /tmp/ftp_deploy.sh
+      # Step 5: Fix .htaccess to serve React SPA correctly (no Passenger config)
+      - name: Fix .htaccess for SPA routing
+        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          script: |
+            cat > ~/domains/pulsewritexsolutions.com/public_html/.htaccess << 'EOF'
+            Options -MultiViews
+            RewriteEngine On
+            RewriteCond %{REQUEST_FILENAME} !-f
+            RewriteRule ^ index.html [QSA,L]
+            EOF
+            echo "=== .htaccess fixed ==="
+            ls -la ~/domains/pulsewritexsolutions.com/public_html/ | head -15

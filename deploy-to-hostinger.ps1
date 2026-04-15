@@ -1,26 +1,39 @@
 # ═══════════════════════════════════════════════════════════════════════
 # PulseX Manual Deployment Script for Hostinger
 # Run this in PowerShell: .\deploy-to-hostinger.ps1
+#
+# VERIFIED PATHS:
+#   server.js      → ~/domains/pulsewritexsolutions.com/nodejs/server.js
+#   backend dist   → ~/domains/pulsewritexsolutions.com/backendnode/dist/
+#   frontend dist  → ~/domains/pulsewritexsolutions.com/public_html/
+#   Node.js path   → /opt/alt/alt-nodejs18/root/usr/bin (Node 18, matches Passenger)
 # ═══════════════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
 
 # ── Collect credentials ──
-$SSH_HOST = Read-Host "Enter Hostinger SSH Host (e.g. xxx.hostinger.com)"
+$SSH_HOST = Read-Host "Enter Hostinger SSH Host (e.g. 82.198.227.43)"
 $SSH_USER = Read-Host "Enter Hostinger SSH Username"
 $SSH_PASS = Read-Host "Enter Hostinger SSH Password" -AsSecureString
 $SSH_PASS_PLAIN = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($SSH_PASS))
 $SSH_PORT = 65002
 $REMOTE_BASE = "~/domains/pulsewritexsolutions.com"
+$LOCAL_ROOT = "d:\pulsex(prototyping)"
 
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 1: Build Backend
+# ═══════════════════════════════════════════════════════════════════════
 Write-Host "`n=== Step 1: Building Backend ===" -ForegroundColor Cyan
-Set-Location "d:\pulsex(prototyping)\backend-node"
+Set-Location "$LOCAL_ROOT\backend-node"
 npm install
 npm run build
 Write-Host "Backend build complete." -ForegroundColor Green
 
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 2: Build Frontend
+# ═══════════════════════════════════════════════════════════════════════
 Write-Host "`n=== Step 2: Building Frontend ===" -ForegroundColor Cyan
-Set-Location "d:\pulsex(prototyping)"
+Set-Location "$LOCAL_ROOT"
 $env:VITE_API_URL = "https://api.pulsewritexsolutions.com"
 $env:VITE_GOOGLE_CLIENT_ID = "835363988192-jr2ftrbtlklhui007gosnstjqca77m71.apps.googleusercontent.com"
 $env:VITE_RAZORPAY_KEY_ID = "rzp_live_SaYqVVu3DybnJx"
@@ -28,54 +41,77 @@ npm install
 npm run build
 Write-Host "Frontend build complete." -ForegroundColor Green
 
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 3: Upload to Hostinger via SCP
+# ═══════════════════════════════════════════════════════════════════════
 Write-Host "`n=== Step 3: Uploading to Hostinger via SCP ===" -ForegroundColor Cyan
 
-# Upload server.js bootloader
-Write-Host "Uploading server.js..."
-scp -P $SSH_PORT "d:\pulsex(prototyping)\server.js" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/"
+# Upload server.js bootloader → nodejs/ (where Passenger looks for it)
+Write-Host "Uploading server.js to nodejs/..."
+scp -P $SSH_PORT "$LOCAL_ROOT\server.js" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/nodejs/server.js"
 
-# Upload backend dist
+# Upload backend dist → backendnode/dist/ (NOT backend-node/)
 Write-Host "Uploading backend dist..."
-scp -r -P $SSH_PORT "d:\pulsex(prototyping)\backend-node\dist" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
+scp -r -P $SSH_PORT "$LOCAL_ROOT\backend-node\dist" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
 
-# Upload backend prisma
+# Upload backend prisma schema
 Write-Host "Uploading backend prisma..."
-scp -r -P $SSH_PORT "d:\pulsex(prototyping)\backend-node\prisma" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
+scp -r -P $SSH_PORT "$LOCAL_ROOT\backend-node\prisma" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
 
 # Upload backend package files
 Write-Host "Uploading package.json..."
-scp -P $SSH_PORT "d:\pulsex(prototyping)\backend-node\package.json" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
-scp -P $SSH_PORT "d:\pulsex(prototyping)\backend-node\package-lock.json" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
+scp -P $SSH_PORT "$LOCAL_ROOT\backend-node\package.json" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
+scp -P $SSH_PORT "$LOCAL_ROOT\backend-node\package-lock.json" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/backendnode/"
 
-# Upload frontend
+# Upload frontend (additive — does NOT wipe existing files)
 Write-Host "Uploading frontend dist..."
-scp -r -P $SSH_PORT "d:\pulsex(prototyping)\dist\*" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/public_html/"
-scp -P $SSH_PORT "d:\pulsex(prototyping)\dist\.htaccess" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/public_html/"
+scp -P $SSH_PORT "$LOCAL_ROOT\dist\index.html" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/public_html/"
+scp -r -P $SSH_PORT "$LOCAL_ROOT\dist\assets" "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/public_html/"
 
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 4: Install deps, prisma generate, restart via Passenger
+# ═══════════════════════════════════════════════════════════════════════
 Write-Host "`n=== Step 4: Installing deps & restarting on server ===" -ForegroundColor Cyan
 
 $REMOTE_COMMANDS = @"
-export PATH=/opt/alt/alt-nodejs22/root/usr/bin:`$PATH
+# Use Node 18 (matches what Passenger/Hostinger actually runs)
+export PATH=/opt/alt/alt-nodejs18/root/usr/bin:`$PATH
 export CI=1
+
+echo '=== Node version ==='
+node -v
 
 echo '=== Installing backend dependencies ==='
 cd $REMOTE_BASE/backendnode
 npm install
 chmod -R +x ./node_modules/.bin/
+
+echo '=== Running prisma generate ==='
 ./node_modules/.bin/prisma generate
 
 echo '=== Pushing schema to database ==='
-# Run db push in non-interactive mode. Sometimes it hangs without this.
-CI=1 FORCE_COLOR=0 npx --yes prisma db push --skip-generate --accept-data-loss < /dev/null || echo '⚠️ db push failed or timed out, but continuing deployment'
+CI=1 FORCE_COLOR=0 ./node_modules/.bin/prisma db push --skip-generate --accept-data-loss < /dev/null || echo 'db push failed or timed out, continuing'
 
 npm prune --omit=dev
 
-echo '=== Restarting Node.js ==='
+echo '=== Protecting nodejs/ (removing stray files) ==='
+cd $REMOTE_BASE/nodejs
+for item in `$(ls -A); do
+  case "`$item" in
+    server.js|tmp|stderr.log) ;; 
+    *) rm -rf "`$item"; echo "  removed: `$item" ;;
+  esac
+done
+
+echo '=== Restarting Passenger ==='
+mkdir -p $REMOTE_BASE/nodejs/tmp
+touch $REMOTE_BASE/nodejs/tmp/restart.txt
 mkdir -p $REMOTE_BASE/tmp
 touch $REMOTE_BASE/tmp/restart.txt
-export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
-pkill -f 'node dist/app.js' || true
-sleep 2
+
+echo '=== Verifying public_html ==='
+ls -la $REMOTE_BASE/public_html/
+
 echo '=== Deploy complete ==='
 "@
 

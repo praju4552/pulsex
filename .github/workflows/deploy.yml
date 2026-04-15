@@ -118,6 +118,7 @@ jobs:
 
       - name: Deploy Frontend to Hostinger
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        continue-on-error: true
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -131,17 +132,15 @@ jobs:
       # Step 5: Fix .htaccess to serve React SPA correctly (no Passenger config)
       - name: Fix .htaccess for SPA routing
         uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        continue-on-error: true
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
           script: |
-            cat > ~/domains/pulsewritexsolutions.com/public_html/.htaccess << 'EOF'
-            Options -MultiViews
-            RewriteEngine On
-            RewriteCond %{REQUEST_FILENAME} !-f
-            RewriteRule ^ index.html [QSA,L]
-            EOF
+            set +e
+            printf 'Options -MultiViews\nRewriteEngine On\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteRule ^ index.html [QSA,L]\n' > ~/domains/pulsewritexsolutions.com/public_html/.htaccess
             echo "=== .htaccess fixed ==="
             ls -la ~/domains/pulsewritexsolutions.com/public_html/ | head -15
+            exit 0

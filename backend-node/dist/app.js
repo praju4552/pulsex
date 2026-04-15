@@ -80,16 +80,24 @@ app.get('/health', (_req, res) => __awaiter(void 0, void 0, void 0, function* ()
         threeAvailable = true;
     }
     catch (e) { }
-    const logPath = path_1.default.join(__dirname, '..', '..', 'public_html', 'error_log.txt');
-    let recentLogs = "Log file not found";
+    const potentialLogPaths = [
+        path_1.default.join(__dirname, '..', '..', 'public_html', 'error_log.txt'),
+        path_1.default.join('/home/u655334071/domains/pulsewritexsolutions.com', 'logs', 'error_log'),
+        path_1.default.join('/home/u655334071/domains/pulsewritexsolutions.com', 'passenger.log'),
+        path_1.default.join('/home/u655334071/domains/pulsewritexsolutions.com', 'public_html', 'error_log')
+    ];
+    let recentLogs = "";
     try {
-        if (fs_1.default.existsSync(logPath)) {
-            const content = fs_1.default.readFileSync(logPath, 'utf8');
-            recentLogs = content.split('\n').slice(-50).join('\n');
+        for (const lp of potentialLogPaths) {
+            if (fs_1.default.existsSync(lp)) {
+                recentLogs += `\n--- ${lp} ---\n` + fs_1.default.readFileSync(lp, 'utf8').slice(-1500);
+            }
         }
+        if (!recentLogs)
+            recentLogs = "No log files found.";
     }
     catch (e) {
-        recentLogs = `Error reading log: ${e.message}`;
+        recentLogs += `\nError reading log: ${e.message}`;
     }
     res.json({
         status: 'ok',

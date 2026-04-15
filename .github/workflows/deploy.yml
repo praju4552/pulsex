@@ -16,14 +16,22 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Build backend
+      # Build everything on the CI runner (NOT on Hostinger)
+      - name: Build backend + generate Prisma binary for Hostinger
         run: |
           cd backend-node
           npm install
           npm run build
+          # Generate Prisma client with the binary engine for debian-openssl-1.1.x (Hostinger)
+          npx prisma generate
+          # Install prod deps only (for deployment)
+          npm install --omit=dev
+          echo "=== Build complete ==="
+          ls -la dist/ | head -10
+          ls node_modules/@prisma/client/ | head -5
 
-      # Step 1: Clean old dist on server BEFORE uploading new files
-      - name: Clean old dist on server
+      # Step 1: Clean old backend on server
+      - name: Clean old backend on server
         uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
         continue-on-error: true
         with:
@@ -32,11 +40,12 @@ jobs:
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
           script: |
-            rm -rf ~/domains/pulsewritexsolutions.com/backendnode/dist || true
-            rm -rf ~/domains/pulsewritexsolutions.com/nodejs/backend-node/dist || true
-            echo "=== Old dist cleaned ==="
+            set +e
+            rm -rf ~/domains/pulsewritexsolutions.com/backendnode/dist
+            rm -rf ~/domains/pulsewritexsolutions.com/backendnode/node_modules
+            echo "=== Cleaned old backend ==="
 
-      # Step 2: Upload new compiled backend
+      # Step 2: Upload server.js bootloader
       - name: Deploy Root Server Bootloader
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
         continue-on-error: true
@@ -49,7 +58,8 @@ jobs:
           target: "~/domains/pulsewritexsolutions.com/"
           overwrite: true
 
-      - name: Deploy Backend (primary - backendnode)
+      # Step 3: Upload compiled backend dist
+      - name: Deploy Backend dist and prisma schema
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
         continue-on-error: true
         with:
@@ -57,12 +67,13 @@ jobs:
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
+          source: "backend-node/dist,backend-node/prisma,backend-node/package.json"
           target: "~/domains/pulsewritexsolutions.com/backendnode"
           strip_components: 1
           overwrite: true
 
-      - name: Deploy Backend (secondary - nodejs)
+      # Step 4: Upload pre-built node_modules (NO npm install on Hostinger)
+      - name: Deploy node_modules to Hostinger
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
         continue-on-error: true
         with:
@@ -70,13 +81,13 @@ jobs:
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "backend-node/dist,backend-node/prisma,backend-node/package.json,backend-node/package-lock.json"
-          target: "~/domains/pulsewritexsolutions.com/nodejs/backend-node"
+          source: "backend-node/node_modules"
+          target: "~/domains/pulsewritexsolutions.com/backendnode"
           strip_components: 1
           overwrite: true
 
-      # Step 3: Install deps, seed admin, restart (fully fault-tolerant)
-      - name: Install deps, seed admin and restart
+      # Step 5: Seed admin and restart via Passenger (lightweight - no npm!)
+      - name: Seed admin and restart Passenger
         uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
         continue-on-error: true
         with:
@@ -87,26 +98,18 @@ jobs:
           script: |
             set +e
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
-            echo "=== Installing dependencies (primary) ==="
             cd ~/domains/pulsewritexsolutions.com/backendnode
-            npm install --omit=dev 2>/dev/null
-            ./node_modules/.bin/prisma generate
-            chmod -R +x ./node_modules/.bin/
-            echo "=== Installing dependencies (secondary) ==="
-            cd ~/domains/pulsewritexsolutions.com/nodejs/backend-node
-            npm install --omit=dev 2>/dev/null
-            ./node_modules/.bin/prisma generate
-            chmod -R +x ./node_modules/.bin/
-            echo "=== Seeding admin account ==="
-            cd ~/domains/pulsewritexsolutions.com/backendnode
-            node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h,name:'Pulse X Admin'}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'Pulse X Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}await p.\$disconnect()}catch(err){console.error('Seed error:',err.message)}})();"
-            echo "=== Restarting (Passenger) ==="
+            echo "=== Running DB push (schema sync) ==="
+            ./node_modules/.bin/prisma db push --accept-data-loss 2>&1 | tail -10
+            echo "=== Seeding admin ==="
+            node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'PulseX Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}await p.\$disconnect()}catch(e){console.error('Seed error:',e.message)}})();" 2>&1
+            echo "=== Restarting Passenger ==="
             mkdir -p ~/domains/pulsewritexsolutions.com/tmp
             touch ~/domains/pulsewritexsolutions.com/tmp/restart.txt
-            echo "=== Backend deploy complete ==="
+            echo "=== Backend done ==="
             exit 0
 
-      # Step 4: Build and deploy frontend
+      # Step 6: Build and deploy frontend
       - name: Build Frontend
         env:
           VITE_API_URL: https://api.pulsewritexsolutions.com
@@ -115,6 +118,8 @@ jobs:
         run: |
           npm install
           npm run build
+          echo "=== Frontend built ==="
+          ls dist/
 
       - name: Deploy Frontend to Hostinger
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
@@ -129,7 +134,7 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # Step 5: Fix .htaccess to serve React SPA correctly (no Passenger config)
+      # Step 7: Fix .htaccess for SPA routing
       - name: Fix .htaccess for SPA routing
         uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
         continue-on-error: true
@@ -141,6 +146,6 @@ jobs:
           script: |
             set +e
             printf 'Options -MultiViews\nRewriteEngine On\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteRule ^ index.html [QSA,L]\n' > ~/domains/pulsewritexsolutions.com/public_html/.htaccess
-            echo "=== .htaccess fixed ==="
-            ls -la ~/domains/pulsewritexsolutions.com/public_html/ | head -15
+            echo "=== .htaccess OK ==="
+            ls -la ~/domains/pulsewritexsolutions.com/public_html/ | head -10
             exit 0

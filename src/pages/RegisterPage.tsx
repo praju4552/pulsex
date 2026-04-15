@@ -21,17 +21,11 @@ export function RegisterPage() {
     const googleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             try {
-                // Fetch info from Google
-                const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-                });
-                const userInfo = await userInfoRes.json();
-
-                // Send to backend
+                // Send raw access_token to backend for server-side verification
                 const response = await fetch(`${API_BASE_URL}/prototyping-auth/google`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ googlePayload: userInfo }),
+                    body: JSON.stringify({ access_token: tokenResponse.access_token }),
                 });
 
                 const data = await response.json();

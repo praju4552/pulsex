@@ -100,9 +100,9 @@ jobs:
             echo "=== Seeding admin account ==="
             cd ~/domains/pulsewritexsolutions.com/backendnode
             node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h,name:'Pulse X Admin'}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'Pulse X Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}await p.\$disconnect()}catch(err){console.error('Seed error:',err.message)}})();"
-            echo "=== Restarting Node.js ==="
-            killall -9 node 2>/dev/null
-            sleep 2
+            echo "=== Restarting (Passenger) ==="
+            mkdir -p ~/domains/pulsewritexsolutions.com/tmp
+            touch ~/domains/pulsewritexsolutions.com/tmp/restart.txt
             echo "=== Backend deploy complete ==="
             exit 0
 

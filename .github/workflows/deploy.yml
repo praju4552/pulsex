@@ -132,7 +132,7 @@ jobs:
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "dist/*"
+          source: "dist"
           target: "~/domains/pulsewritexsolutions.com/public_html"
           strip_components: 1
           overwrite: true

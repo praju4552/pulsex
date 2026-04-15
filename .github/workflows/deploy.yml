@@ -39,6 +39,7 @@ jobs:
       # Step 2: Upload new compiled backend
       - name: Deploy Root Server Bootloader
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        continue-on-error: true
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -50,6 +51,7 @@ jobs:
 
       - name: Deploy Backend (primary - backendnode)
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        continue-on-error: true
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -62,6 +64,7 @@ jobs:
 
       - name: Deploy Backend (secondary - nodejs)
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        continue-on-error: true
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}

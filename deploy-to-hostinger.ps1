@@ -103,11 +103,24 @@ for item in `$(ls -A); do
   esac
 done
 
+echo '=== Injecting DB connection limit (fixing uv_thread assertion) ==='
+if grep -q "DATABASE_URL" $REMOTE_BASE/backendnode/.env; then
+  # If connection_limit is not already present, append it to the DATABASE_URL line
+  if ! grep -q "connection_limit" $REMOTE_BASE/backendnode/.env; then
+    sed -i -e 's|?.*"|?connection_limit=2"|' -e 's|"$|?connection_limit=2"|' $REMOTE_BASE/backendnode/.env
+  fi
+fi
+
+echo '=== Injecting PassengerSpawnMethod direct into API .htaccess ==='
+find $REMOTE_BASE -name ".htaccess" -path "*/backendnode/*" -exec sed -i -e '/PassengerSpawnMethod direct/d' -e '1i PassengerSpawnMethod direct' {} \;
+find $REMOTE_BASE/public_html -name ".htaccess" -exec sed -i -e '/PassengerSpawnMethod direct/d' -e '1i PassengerSpawnMethod direct' {} \;
+
 echo '=== Restarting Passenger ==='
 mkdir -p $REMOTE_BASE/nodejs/tmp
 touch $REMOTE_BASE/nodejs/tmp/restart.txt
 mkdir -p $REMOTE_BASE/tmp
 touch $REMOTE_BASE/tmp/restart.txt
+
 
 echo '=== Verifying public_html ==='
 ls -la $REMOTE_BASE/public_html/

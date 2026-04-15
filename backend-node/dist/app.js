@@ -29,6 +29,7 @@ const serviceInquiryRoutes_1 = __importDefault(require("./routes/serviceInquiryR
 const cmsAuthRoutes_1 = __importDefault(require("./routes/cmsAuthRoutes"));
 const cmsAdminRoutes_1 = __importDefault(require("./routes/cmsAdminRoutes"));
 const pricingRoutes_1 = __importDefault(require("./routes/pricingRoutes"));
+const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
 // ✅ Load .env relative to this file's location (dist/app.js → ../.env)
 // This works regardless of what directory Hostinger/Passenger uses as cwd.
 const envPath = path_1.default.join(__dirname, '..', '.env');
@@ -167,6 +168,7 @@ app.use('/api/service-inquiry', serviceInquiryRoutes_1.default);
 app.use('/api/cms-auth', cmsAuthRoutes_1.default);
 app.use('/api/cms-admin', cmsAdminRoutes_1.default);
 app.use('/api/pricing', pricingRoutes_1.default);
+app.use('/api/payments', paymentRoutes_1.default);
 // Fallback route for SPA - send index.html for any non-API routes
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {

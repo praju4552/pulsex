@@ -171,6 +171,7 @@ app.use('/api/service-inquiry', serviceInquiryRoutes);
 app.use('/api/cms-auth', cmsAuthRoutes);
 app.use('/api/cms-admin', cmsAdminRoutes);
 app.use('/api/pricing', pricingRoutes);
+app.use('/api/payments', paymentRoutes);
 // Fallback route for SPA - send index.html for any non-API routes
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {

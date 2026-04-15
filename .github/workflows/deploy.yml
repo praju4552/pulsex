@@ -16,21 +16,18 @@ jobs:
         with:
           node-version: '18'
 
-      # Build everything on the CI runner (NOT on Hostinger)
-      - name: Build backend + generate Prisma binary for Hostinger
+      # ── BACKEND BUILD ──────────────────────────────────────────────────────────
+      - name: Build backend + generate Prisma client
         run: |
           cd backend-node
           npm install
           npm run build
-          # Generate Prisma client with the binary engine for debian-openssl-1.1.x (Hostinger)
           npx prisma generate
-          # Install prod deps only (for deployment)
           npm install --omit=dev
-          echo "=== Build complete ==="
+          echo "=== Backend build complete ==="
           ls -la dist/ | head -10
-          ls node_modules/@prisma/client/ | head -5
 
-      # Step 1: Clean old backend on server
+      # ── CLEAN OLD BACKEND ON SERVER ────────────────────────────────────────────
       - name: Clean old backend on server
         uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
         continue-on-error: true
@@ -45,20 +42,7 @@ jobs:
             rm -rf ~/domains/pulsewritexsolutions.com/backendnode/node_modules
             echo "=== Cleaned old backend ==="
 
-      # Step 2: Upload server.js bootloader
-      - name: Deploy Root Server Bootloader
-        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
-        continue-on-error: true
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          source: "server.js"
-          target: "~/domains/pulsewritexsolutions.com/"
-          overwrite: true
-
-      # Step 3: Upload compiled backend dist
+      # ── UPLOAD BACKEND DIST ────────────────────────────────────────────────────
       - name: Deploy Backend dist and prisma schema
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
         continue-on-error: true
@@ -72,7 +56,7 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # Step 4: Upload pre-built node_modules (NO npm install on Hostinger)
+      # ── UPLOAD NODE_MODULES ────────────────────────────────────────────────────
       - name: Deploy node_modules to Hostinger
         uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
         continue-on-error: true
@@ -86,7 +70,7 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # Step 5: Seed admin and restart via Passenger (lightweight - no npm!)
+      # ── SEED + RESTART BACKEND ─────────────────────────────────────────────────
       - name: Seed admin and restart Passenger
         uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
         continue-on-error: true
@@ -99,20 +83,20 @@ jobs:
             set +e
             export PATH=/opt/alt/alt-nodejs22/root/usr/bin:$PATH
             cd ~/domains/pulsewritexsolutions.com/backendnode
-            echo "=== Running DB push (schema sync) ==="
+            echo "=== DB push ==="
             ./node_modules/.bin/prisma db push --accept-data-loss 2>&1 | tail -10
             echo "=== Seeding admin ==="
             node -e "const{PrismaClient}=require('@prisma/client');const bcrypt=require('bcryptjs');const p=new PrismaClient();(async()=>{try{const h=await bcrypt.hash('EdmalaB@2025',10);const e=await p.prototypingUser.findUnique({where:{email:'pulsewritex@gmail.com'}});if(e){await p.prototypingUser.update({where:{email:'pulsewritex@gmail.com'},data:{role:'SUPER_ADMIN',password:h}});console.log('Admin updated')}else{await p.prototypingUser.create({data:{email:'pulsewritex@gmail.com',name:'PulseX Admin',password:h,role:'SUPER_ADMIN'}});console.log('Admin created')}await p.\$disconnect()}catch(e){console.error('Seed error:',e.message)}})();" 2>&1
-            echo "=== Restarting Passenger (kill stale lsnode + restart.txt) ==="
+            echo "=== Kill stale processes ==="
             pkill -f "lsnode.*backendnode" 2>/dev/null || true
             pkill -f "query-engine" 2>/dev/null || true
             sleep 2
             mkdir -p ~/domains/pulsewritexsolutions.com/tmp
             touch ~/domains/pulsewritexsolutions.com/tmp/restart.txt
-            echo "=== Backend done ==="
+            echo "=== Backend restart done ==="
             exit 0
 
-      # Step 6: Build and deploy frontend
+      # ── FRONTEND BUILD ─────────────────────────────────────────────────────────
       - name: Build Frontend
         env:
           VITE_API_URL: https://api.pulsewritexsolutions.com
@@ -124,21 +108,8 @@ jobs:
           echo "=== Frontend built ==="
           ls dist/
 
-      - name: Deploy Frontend to Hostinger
-        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
-        continue-on-error: true
-        with:
-          host: ${{ secrets.HOSTINGER_SSH_HOST }}
-          username: ${{ secrets.HOSTINGER_SSH_USER }}
-          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
-          port: 65002
-          source: "dist"
-          target: "~/domains/pulsewritexsolutions.com/public_html"
-          strip_components: 1
-          overwrite: true
-
-      # Step 7: Fix .htaccess for SPA routing
-      - name: Fix .htaccess for SPA routing
+      # ── PREPARE public_html ────────────────────────────────────────────────────
+      - name: Prepare public_html directory
         uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
         continue-on-error: true
         with:
@@ -148,7 +119,57 @@ jobs:
           port: 65002
           script: |
             set +e
-            printf 'Options -MultiViews\nRewriteEngine On\nRewriteCond %%{REQUEST_FILENAME} !-f\nRewriteRule ^ index.html [QSA,L]\n' > ~/domains/pulsewritexsolutions.com/public_html/.htaccess
-            echo "=== .htaccess OK ==="
-            ls -la ~/domains/pulsewritexsolutions.com/public_html/ | head -10
+            mkdir -p ~/domains/pulsewritexsolutions.com/public_html/assets
+            echo "=== public_html ready ==="
+
+      # ── UPLOAD FRONTEND: index.html + assets separately ───────────────────────
+      - name: SCP Frontend files
+        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        continue-on-error: true
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          source: "dist/index.html,dist/assets"
+          target: "~/domains/pulsewritexsolutions.com/public_html"
+          strip_components: 1
+          overwrite: true
+
+      # ── RESTORE .htaccess + PROTECT nodejs/ ───────────────────────────────────
+      - name: Restore .htaccess and protect nodejs/
+        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
+        continue-on-error: true
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 65002
+          script: |
+            set +e
+            # Restore Passenger .htaccess (SCP overwrites it sometimes)
+            cat > ~/domains/pulsewritexsolutions.com/public_html/.htaccess << 'HTEOF'
+            Options -MultiViews
+            RewriteEngine On
+            RewriteCond %{REQUEST_FILENAME} !-f
+            RewriteRule ^ index.html [QSA,L]
+            PassengerAppRoot /home/u655334071/domains/pulsewritexsolutions.com/nodejs
+            PassengerAppType node
+            PassengerNodejs /opt/alt/alt-nodejs18/root/bin/node
+            PassengerStartupFile server.js
+            PassengerBaseURI /
+            PassengerRestartDir /home/u655334071/domains/pulsewritexsolutions.com/nodejs/tmp
+            SetEnv NODE_OPTIONS "--require /home/u655334071/domains/pulsewritexsolutions.com/public_html/.builds/config/preload-timestamp.js"
+            SetEnv LSNODE_CONSOLE_LOG console.log
+            RewriteRule ^\.builds - [F,L]
+            HTEOF
+            echo "=== .htaccess restored ==="
+            # Protect nodejs/ - remove any accidental uploads, keep only server.js + tmp/
+            cd ~/domains/pulsewritexsolutions.com/nodejs
+            ls -la | grep -v "^total" | grep -v "^\." | grep -v "server.js" | grep -v "stderr.log" | grep -v "tmp" | grep -v "PulseX" | awk '{print $NF}' | xargs -r rm -rf
+            touch tmp/restart.txt
+            echo "=== nodejs/ protected, restart triggered ==="
+            echo "=== Final public_html state ==="
+            ls -la ~/domains/pulsewritexsolutions.com/public_html/
+            echo "=== Deploy complete ==="
             exit 0

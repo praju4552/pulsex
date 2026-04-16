@@ -118,10 +118,7 @@ jobs:
               esac
             done
 
-            echo "=== Killing stale processes ==="
-            pkill -f "query-engine" 2>/dev/null || true
-
-            echo "=== Restarting Passenger ==="
+            echo "=== Restarting Passenger (MUST run before anything else) ==="
             mkdir -p $DOMAIN/nodejs/tmp
             touch $DOMAIN/nodejs/tmp/restart.txt
             mkdir -p $DOMAIN/tmp

@@ -53,18 +53,47 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # ── UPLOAD server.js BOOTLOADER to nodejs/ ────────────────────────────────
-      # Passenger looks for nodejs/server.js — upload our hardened bootloader there
+      # ── WRITE server.js BOOTLOADER to nodejs/ via SSH ─────────────────────────
+      # DO NOT use scp-action here — it uploads the entire workspace into nodejs/
+      # Instead, write the minimal static server directly via SSH
       - name: Deploy server.js bootloader
-        uses: appleboy/scp-action@a6e43c3aaf4e8e6b0b15bf34e19d71118f6b1ca7 # master
+        uses: appleboy/ssh-action@90162d1e4396c5c4b7671d60cae550a8b1ae1d0b # master
         with:
           host: ${{ secrets.HOSTINGER_SSH_HOST }}
           username: ${{ secrets.HOSTINGER_SSH_USER }}
           password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
           port: 65002
-          source: "server.js"
-          target: "~/domains/pulsewritexsolutions.com/nodejs"
-          overwrite: true
+          script: |
+            cat > ~/domains/pulsewritexsolutions.com/nodejs/server.js << 'SRVEOF'
+            const path = require('path');
+            const fs   = require('fs');
+            const http = require('http');
+            const PUBLIC = path.join(__dirname, '..', 'public_html');
+            const MIME = {
+              '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
+              '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
+              '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.json': 'application/json'
+            };
+            http.createServer((req, res) => {
+              const urlPath = req.url.split('?')[0];
+              let filePath = path.join(PUBLIC, urlPath);
+              if (!filePath.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
+              if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+                const ext = path.extname(filePath);
+                res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+                res.end(fs.readFileSync(filePath));
+              } else {
+                try {
+                  res.writeHead(200, { 'Content-Type': 'text/html' });
+                  res.end(fs.readFileSync(path.join(PUBLIC, 'index.html')));
+                } catch(e) {
+                  res.writeHead(503, { 'Content-Type': 'text/html' });
+                  res.end('<h1>PulseX is starting up...</h1>');
+                }
+              }
+            }).listen(process.env.PORT || 3000, () => console.log('Static server running'));
+            SRVEOF
+            echo "server.js written to nodejs/"
 
       # ── UPLOAD FRONTEND (additive — does NOT delete existing files) ────────────
       - name: Deploy Frontend to Hostinger
@@ -118,14 +147,26 @@ jobs:
               esac
             done
 
-            echo "=== Restarting Passenger (MUST run before anything else) ==="
+            echo "=== Fixing .htaccess (remove NODE_OPTIONS preload that crashes Node) ==="
+            sed -i '/SetEnv NODE_OPTIONS/d' $DOMAIN/public_html/.htaccess 2>/dev/null || true
+            sed -i '/\.builds/d' $DOMAIN/public_html/.htaccess 2>/dev/null || true
+
+            echo "=== Restarting Passenger ==="
             mkdir -p $DOMAIN/nodejs/tmp
             touch $DOMAIN/nodejs/tmp/restart.txt
             mkdir -p $DOMAIN/tmp
             touch $DOMAIN/tmp/restart.txt
 
-            echo "=== Verifying public_html ==="
+            echo "=== Verifying ==="
+            echo "--- .htaccess ---"
+            cat $DOMAIN/public_html/.htaccess
+            echo "--- public_html ---"
             ls -la $DOMAIN/public_html/
+            echo "--- nodejs/ ---"
+            ls -la $DOMAIN/nodejs/
+            echo "--- nodejs/ size ---"
+            du -sh $DOMAIN/nodejs/
 
             echo "=== Deploy complete ==="
             exit 0
+

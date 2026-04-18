@@ -53,7 +53,7 @@ export const signup = async (req: Request, res: Response) => {
         const token = jwt.sign(
             { userId: user.id, role: user.role, email: user.email },
             JWT_SECRET,
-            { expiresIn: TOKEN_EXPIRY }
+            { expiresIn: user.role === 'SUPER_ADMIN' ? '24h' : TOKEN_EXPIRY }
         );
 
         res.status(201).json({ message: 'Prototyping user registered successfully', user: userWithoutPassword, token });
@@ -104,7 +104,7 @@ export const login = async (req: Request, res: Response) => {
         const token = jwt.sign(
             { userId: protoUser.id, role: protoUser.role, email: protoUser.email },
             JWT_SECRET,
-            { expiresIn: TOKEN_EXPIRY }
+            { expiresIn: protoUser.role === 'SUPER_ADMIN' ? '24h' : TOKEN_EXPIRY }
         );
 
         const refreshToken = jwt.sign(
@@ -171,7 +171,7 @@ export const googleLogin = async (req: Request, res: Response) => {
         const jwtToken = jwt.sign(
             { userId: user.id, role: user.role, email: user.email },
             JWT_SECRET,
-            { expiresIn: TOKEN_EXPIRY }
+            { expiresIn: user.role === 'SUPER_ADMIN' ? '24h' : TOKEN_EXPIRY }
         );
 
         const { password: _, ...userWithoutPassword } = user;
@@ -306,7 +306,7 @@ export const whatsappVerifyOtp = async (req: Request, res: Response) => {
         const jwtToken = jwt.sign(
             { userId: user.id, role: user.role, email: user.email },
             JWT_SECRET,
-            { expiresIn: TOKEN_EXPIRY }
+            { expiresIn: user.role === 'SUPER_ADMIN' ? '24h' : TOKEN_EXPIRY }
         );
 
         const { password: _, ...userWithoutPassword } = user;

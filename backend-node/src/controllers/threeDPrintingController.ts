@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
 import { ThreeDService } from '../services/threeDService';
-
-const prisma = new PrismaClient();
+import prisma from '../db';
+import { deepLog } from '../utils/logger';
 
 export const uploadAndProcess = async (req: Request, res: Response) => {
   try {
@@ -12,10 +11,14 @@ export const uploadAndProcess = async (req: Request, res: Response) => {
     const userId = req.body.userId; // Optional, for logged in users
 
     if (!file) {
+      deepLog('[UPLOAD] FAILED: No file uploaded');
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
+    deepLog(`[UPLOAD] Starting process for ${file.originalname} (${file.size} bytes)`);
+
     // 1. Create file record in DB
+    deepLog(`[UPLOAD] Creating DB record...`);
     const dbFile = await prisma.threeDFile.create({
       data: {
         userId: userId || null,
@@ -25,11 +28,13 @@ export const uploadAndProcess = async (req: Request, res: Response) => {
         uploadStatus: 'PROCESSING',
       },
     });
+    deepLog(`[UPLOAD] DB record created: ${dbFile.id}`);
 
-    // 2. Trigger asynchronous processing (to fulfill non-blocking requirement)
-    // In production with Redis, this would be a BullMQ job.
-    // Here we use an async wrapper that doesn't block the response.
+    // 2. Trigger asynchronous processing
+    deepLog(`[UPLOAD] Triggering background processing for ${dbFile.id}...`);
     processMeshInBackground(dbFile.id, file.path, dbFile.fileType);
+
+    deepLog(`[UPLOAD] Returning success to client.`);
 
     return res.json({
       success: true,
@@ -37,6 +42,7 @@ export const uploadAndProcess = async (req: Request, res: Response) => {
       fileId: dbFile.id,
     });
   } catch (error: any) {
+    deepLog(`[UPLOAD] ERROR: ${error.message}`);
     console.error('3D Upload Error:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -44,7 +50,11 @@ export const uploadAndProcess = async (req: Request, res: Response) => {
 
 const processMeshInBackground = async (fileId: string, filePath: string, fileType: string) => {
   try {
-    const metadata = await ThreeDService.getMetadata(filePath, fileType);
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+    deepLog(`[BACKGROUND] Starting for ${fileId} at ${absolutePath}`);
+
+    const metadata = await ThreeDService.getMetadata(absolutePath, fileType);
+    deepLog(`[BACKGROUND] Metadata extracted for ${fileId}`);
 
     await prisma.threeDMetadata.create({
       data: {

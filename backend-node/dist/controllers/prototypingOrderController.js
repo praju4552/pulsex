@@ -27,7 +27,7 @@ const pdfGenerator_1 = require("../utils/pdfGenerator");
 function createPrototypingOrder(req, res) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const { firstName, lastName, email, phone, streetAddress, apartment, city, state, zip, country, serviceType, specifications, specSummary, shippingMethod, shippingCost, pcbPrice, totalAmount, userId, } = req.body;
+            const { firstName, lastName, email, phone, streetAddress, apartment, city, state, zip, country, billingName, billingStreetAddress, billingApartment, billingCity, billingState, billingZip, billingCountry, gstNumber, serviceType, specifications, specSummary, shippingMethod, shippingCost, pcbPrice, totalAmount, userId, } = req.body;
             // Basic validation
             const required = { firstName, lastName, email, phone, streetAddress, city, state, zip, country };
             const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
@@ -46,10 +46,19 @@ function createPrototypingOrder(req, res) {
                     firstName, lastName, email, phone,
                     streetAddress, apartment: apartment || null,
                     city, state, zip, country,
+                    // Billing address (falls back to shipping if not provided)
+                    billingName: billingName || `${firstName} ${lastName}`,
+                    billingStreetAddress: billingStreetAddress || streetAddress,
+                    billingApartment: billingApartment || apartment || null,
+                    billingCity: billingCity || city,
+                    billingState: billingState || state,
+                    billingZip: billingZip || zip,
+                    billingCountry: billingCountry || country,
+                    gstNumber: gstNumber || null,
                     serviceType: serviceType || 'PCB Printing',
                     specifications: specifications || {},
                     specSummary: specSummary || '',
-                    shippingMethod: shippingMethod || 'Standard',
+                    shippingMethod: shippingMethod || 'Fast Delivery',
                     shippingCost: Math.round(shippingCost || 0),
                     pcbPrice: Math.round(pcbPrice || 0),
                     totalAmount: Math.round(totalAmount || 0),
@@ -325,12 +334,22 @@ function downloadPrototypingDocument(req, res) {
                 lastName: order.lastName,
                 email: order.email,
                 phone: order.phone,
+                // Shipping
                 streetAddress: order.streetAddress,
                 apartment: order.apartment || undefined,
                 city: order.city,
                 state: order.state,
                 zip: order.zip,
                 country: order.country,
+                // Billing
+                billingName: order.billingName || undefined,
+                billingStreetAddress: order.billingStreetAddress || undefined,
+                billingApartment: order.billingApartment || undefined,
+                billingCity: order.billingCity || undefined,
+                billingState: order.billingState || undefined,
+                billingZip: order.billingZip || undefined,
+                billingCountry: order.billingCountry || undefined,
+                gstNumber: order.gstNumber || undefined,
                 serviceType: order.serviceType,
                 specSummary: order.specSummary,
                 totalAmount: order.totalAmount,

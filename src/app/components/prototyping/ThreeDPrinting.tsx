@@ -234,8 +234,8 @@ export default function ThreeDPrinting() {
       },
       qty: config.quantity || 1,
       pcbPrice: price.total,
-      shippingMethod: 'Standard',
-      shippingCost: 100,
+      shippingMethod: 'Fast Delivery',
+      shippingCost: 150,
       image: 'https://images.unsplash.com/photo-1581092335397-9583eb92d232?q=80&w=2070&auto=format&fit=crop'
     };
 

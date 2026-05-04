@@ -28,7 +28,20 @@ export default function PrototypingCart() {
     city: '',
     state: '',
     zip: '',
-    country: 'US',
+    country: 'IN',
+  });
+
+  // Billing address state
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
+  const [billing, setBilling] = useState({
+    billingName: '',
+    billingAddress: '',
+    billingApartment: '',
+    billingCity: '',
+    billingState: '',
+    billingZip: '',
+    billingCountry: 'IN',
+    gstNumber: '',
   });
 
   useEffect(() => {
@@ -46,6 +59,18 @@ export default function PrototypingCart() {
         state: user.state || '',
         zip: user.zip || '',
         country: user.country || 'IN',
+      }));
+      // Pre-fill billing from saved billing address if available
+      setBilling(prev => ({
+        ...prev,
+        billingName: user.name || '',
+        billingAddress: (user as any).billingStreetAddress || user.streetAddress || '',
+        billingApartment: (user as any).billingApartment || user.apartment || '',
+        billingCity: (user as any).billingCity || user.city || '',
+        billingState: (user as any).billingState || user.state || '',
+        billingZip: (user as any).billingZip || user.zip || '',
+        billingCountry: (user as any).billingCountry || user.country || 'IN',
+        gstNumber: (user as any).gstNumber || '',
       }));
     }
   }, []);
@@ -148,9 +173,20 @@ export default function PrototypingCart() {
               state: shipping.state, 
               zip: shipping.zip, 
               country: shipping.country,
-              method: item.shippingMethod || 'Standard', 
+              method: item.shippingMethod || 'Fast Delivery', 
               cost: item.shippingCost || 0
-            }
+            },
+            billingInfo: billingSameAsShipping ? null : {
+              billingName: billing.billingName,
+              billingStreetAddress: billing.billingAddress,
+              billingApartment: billing.billingApartment,
+              billingCity: billing.billingCity,
+              billingState: billing.billingState,
+              billingZip: billing.billingZip,
+              billingCountry: billing.billingCountry,
+              gstNumber: billing.gstNumber || null,
+            },
+            gstNumber: billing.gstNumber || null,
           };
 
           const res = await fetch(`${API_BASE_URL}/three-d-printing/order`, {
@@ -182,6 +218,15 @@ export default function PrototypingCart() {
             state: shipping.state,
             zip: shipping.zip,
             country: shipping.country,
+            // Billing address
+            billingName: billingSameAsShipping ? `${shipping.firstName} ${shipping.lastName}` : billing.billingName,
+            billingStreetAddress: billingSameAsShipping ? shipping.address : billing.billingAddress,
+            billingApartment: billingSameAsShipping ? shipping.apartment : billing.billingApartment,
+            billingCity: billingSameAsShipping ? shipping.city : billing.billingCity,
+            billingState: billingSameAsShipping ? shipping.state : billing.billingState,
+            billingZip: billingSameAsShipping ? shipping.zip : billing.billingZip,
+            billingCountry: billingSameAsShipping ? shipping.country : billing.billingCountry,
+            gstNumber: billing.gstNumber || null,
             serviceType: item.type,
             specifications: item.fullSpec || {},
             specSummary: item.spec,
@@ -520,6 +565,107 @@ export default function PrototypingCart() {
                     <option value="AU">Australia</option>
                   </select>
                 </div>
+              </div>
+            </section>
+
+            {/* Billing Address Section */}
+            <section>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <h2 className="text-2xl font-bold">Billing Address</h2>
+              </div>
+
+              {/* Same as Shipping toggle */}
+              <label className="flex items-center gap-3 p-4 rounded-xl border border-border-glass bg-glass-bg cursor-pointer mb-6 hover:border-[#00cc55]/30 transition-all">
+                <input
+                  type="checkbox"
+                  checked={billingSameAsShipping}
+                  onChange={e => setBillingSameAsShipping(e.target.checked)}
+                  className="w-4 h-4 accent-[#00cc55]"
+                />
+                <span className="text-sm font-medium text-text-primary">Billing address is the same as shipping address</span>
+                {billingSameAsShipping && <span className="ml-auto text-[10px] font-black text-[#00cc55] bg-[#00cc55]/10 px-2 py-0.5 rounded-full border border-[#00cc55]/20 uppercase tracking-widest">Active</span>}
+              </label>
+
+              {/* GST Number (always visible) */}
+              <div className="p-6 rounded-2xl border border-border-glass bg-glass-bg backdrop-blur-md space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
+                    GST Number <span className="text-text-muted text-xs">(optional — for tax invoice)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={billing.gstNumber}
+                    onChange={e => setBilling({...billing, gstNumber: e.target.value.toUpperCase()})}
+                    className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all font-mono tracking-wider"
+                    placeholder="e.g. 33AAPCP4334E1ZI"
+                    maxLength={15}
+                  />
+                  <p className="text-xs text-text-muted">Enter your 15-digit GSTIN to receive a GST-compliant tax invoice.</p>
+                </div>
+
+                {/* Full billing address form — only shown when different from shipping */}
+                {!billingSameAsShipping && (
+                  <div className="space-y-6 border-t border-border-glass pt-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-text-secondary">Billing Name / Company</label>
+                      <input
+                        type="text"
+                        value={billing.billingName}
+                        onChange={e => setBilling({...billing, billingName: e.target.value})}
+                        className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
+                        placeholder="Company name or full name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-text-secondary">Street Address</label>
+                      <input
+                        type="text"
+                        value={billing.billingAddress}
+                        onChange={e => setBilling({...billing, billingAddress: e.target.value})}
+                        className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
+                        placeholder="Billing street address"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-text-secondary">Apartment, suite, etc. (optional)</label>
+                      <input
+                        type="text"
+                        value={billing.billingApartment}
+                        onChange={e => setBilling({...billing, billingApartment: e.target.value})}
+                        className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all"
+                        placeholder="Suite, Unit, Floor..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-sm font-medium text-text-secondary">City</label>
+                        <input type="text" value={billing.billingCity} onChange={e => setBilling({...billing, billingCity: e.target.value})} className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all" placeholder="City" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-text-secondary">State</label>
+                        <input type="text" value={billing.billingState} onChange={e => setBilling({...billing, billingState: e.target.value})} className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all" placeholder="TN" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-text-secondary">ZIP Code</label>
+                        <input type="text" value={billing.billingZip} onChange={e => setBilling({...billing, billingZip: e.target.value})} className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all" placeholder="600001" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-text-secondary">Country</label>
+                      <select value={billing.billingCountry} onChange={e => setBilling({...billing, billingCountry: e.target.value})} className="w-full bg-black/50 border border-border-glass rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-[#00cc55] focus:ring-1 focus:ring-[#00cc55] transition-all appearance-none">
+                        <option value="IN">India</option>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="AU">Australia</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
           </div>

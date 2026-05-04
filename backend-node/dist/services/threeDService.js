@@ -14,102 +14,65 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ThreeDService = void 0;
 const fs_1 = __importDefault(require("fs"));
-// Use Function() constructor to get a real ESM dynamic import()
-// that TypeScript won't transform into require() during CommonJS compilation.
-const dynamicImport = new Function('specifier', 'return import(specifier)');
+const child_process_1 = require("child_process");
+const path_1 = __importDefault(require("path"));
+const logger_1 = require("../utils/logger");
 class ThreeDService {
     /**
      * Processes a 3D file and extracts metadata.
-     * Supports STL and 3MF.
-     * All three.js imports are lazy-loaded to prevent server crash on startup.
+     * Uses child_process.spawn() for isolation on Hostinger.
      */
     static getMetadata(filePath, fileType) {
         return __awaiter(this, void 0, void 0, function* () {
-            // Lazy-load three.js core only when actually processing a file
-            const THREE = yield dynamicImport('three');
-            const data = fs_1.default.readFileSync(filePath);
-            let geometry; // THREE.BufferGeometry
-            if (fileType.toLowerCase().includes('stl') || filePath.toLowerCase().endsWith('.stl')) {
-                const { STLLoader } = yield dynamicImport('three/examples/jsm/loaders/STLLoader.js');
-                const loader = new STLLoader();
-                const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-                geometry = loader.parse(arrayBuffer);
-            }
-            else if (fileType.toLowerCase().includes('3mf') || filePath.toLowerCase().endsWith('.3mf')) {
-                const { ThreeMFLoader } = yield dynamicImport('three/examples/jsm/loaders/3MFLoader.js');
-                const BufferGeometryUtils = yield dynamicImport('three/examples/jsm/utils/BufferGeometryUtils.js');
-                const loader = new ThreeMFLoader();
-                const arrayBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-                const group = loader.parse(arrayBuffer);
-                const geometries = [];
-                group.traverse((child) => {
-                    if (child.isMesh) {
-                        if (child.geometry) {
-                            child.updateMatrixWorld();
-                            const geom = child.geometry.clone();
-                            geom.applyMatrix4(child.matrixWorld);
-                            geometries.push(geom);
+            return new Promise((resolve, reject) => {
+                var _a, _b, _c, _d;
+                const workerPath = path_1.default.join(__dirname, 'threeDWorker.js');
+                const nodePath = '/opt/alt/alt-nodejs24/root/usr/bin/node';
+                (0, logger_1.deepLog)(`[SERVICE] Spawning process for ${filePath} using ${nodePath}`);
+                if (!fs_1.default.existsSync(workerPath)) {
+                    (0, logger_1.deepLog)(`[SERVICE] ERROR: Worker file NOT FOUND at ${workerPath}`);
+                    return reject(new Error('Internal worker script missing'));
+                }
+                const child = (0, child_process_1.spawn)(nodePath, [workerPath], {
+                    stdio: ['pipe', 'pipe', 'pipe']
+                });
+                let stdoutData = '';
+                (_a = child.stdout) === null || _a === void 0 ? void 0 : _a.on('data', (data) => {
+                    stdoutData += data.toString();
+                    (0, logger_1.deepLog)(`[SERVICE] Spawn STDOUT: ${data.toString()}`);
+                });
+                (_b = child.stderr) === null || _b === void 0 ? void 0 : _b.on('data', (data) => {
+                    (0, logger_1.deepLog)(`[SERVICE] Spawn STDERR: ${data.toString()}`);
+                });
+                // Send data via stdin since we don't have IPC
+                (_c = child.stdin) === null || _c === void 0 ? void 0 : _c.write(JSON.stringify({ filePath, fileType }) + '\n');
+                (_d = child.stdin) === null || _d === void 0 ? void 0 : _d.end();
+                child.on('close', (code) => {
+                    (0, logger_1.deepLog)(`[SERVICE] Spawn CLOSED with code ${code}`);
+                    if (code === 0) {
+                        try {
+                            const results = JSON.parse(stdoutData.split('\n').filter(line => line.trim()).pop() || '');
+                            if (results.success) {
+                                resolve(results.results);
+                            }
+                            else {
+                                reject(new Error(results.error));
+                            }
+                        }
+                        catch (e) {
+                            reject(new Error('Failed to parse worker output: ' + stdoutData));
                         }
                     }
+                    else {
+                        reject(new Error(`Worker process exited with code ${code}`));
+                    }
                 });
-                if (geometries.length === 0) {
-                    throw new Error('No valid meshes found in 3MF file.');
-                }
-                const merged = BufferGeometryUtils.mergeGeometries(geometries, false);
-                if (!merged) {
-                    throw new Error('Failed to merge 3MF geometries.');
-                }
-                geometry = merged;
-            }
-            else {
-                throw new Error(`Unsupported file type for metadata extraction: ${fileType}. Please use STL or 3MF.`);
-            }
-            if (!geometry.index && geometry.attributes.position) {
-                // If not indexed, we can still calculate
-            }
-            const metadata = this.calculateMetadata(geometry, THREE);
-            return metadata;
+                child.on('error', (err) => {
+                    (0, logger_1.deepLog)(`[SERVICE] Spawn error: ${err.message}`);
+                    reject(err);
+                });
+            });
         });
-    }
-    static calculateMetadata(geometry, THREE) {
-        // 1. Triangle Count
-        const positionAttribute = geometry.getAttribute('position');
-        const triangleCount = positionAttribute.count / 3;
-        // 2. Dimensions (Bounding Box)
-        geometry.computeBoundingBox();
-        const bbox = geometry.boundingBox;
-        const width = bbox.max.x - bbox.min.x;
-        const height = bbox.max.y - bbox.min.y;
-        const depth = bbox.max.z - bbox.min.z;
-        // 3. Volume and Surface Area
-        let volume = 0;
-        let surfaceArea = 0;
-        const pos = positionAttribute.array;
-        const p1 = new THREE.Vector3();
-        const p2 = new THREE.Vector3();
-        const p3 = new THREE.Vector3();
-        for (let i = 0; i < pos.length; i += 9) {
-            p1.set(pos[i], pos[i + 1], pos[i + 2]);
-            p2.set(pos[i + 3], pos[i + 4], pos[i + 5]);
-            p3.set(pos[i + 6], pos[i + 7], pos[i + 8]);
-            // Signed volume of tetrahedron formed by origin and triangle faces
-            volume += p1.dot(p2.cross(p3)) / 6.0;
-            // Surface Area
-            const edge1 = new THREE.Vector3().subVectors(p2, p1);
-            const edge2 = new THREE.Vector3().subVectors(p3, p1);
-            surfaceArea += new THREE.Vector3().crossVectors(edge1, edge2).length() * 0.5;
-        }
-        // 4. Estimated Print Time (Very basic heuristic: Volume based)
-        const estimatedPrintTime = (Math.abs(volume) / 10) / 60 + 30; // Minutes
-        return {
-            volume: Math.abs(volume),
-            surfaceArea,
-            width,
-            height,
-            depth,
-            triangleCount,
-            estimatedPrintTime
-        };
     }
 }
 exports.ThreeDService = ThreeDService;

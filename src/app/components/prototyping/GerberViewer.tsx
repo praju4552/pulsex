@@ -14,22 +14,86 @@ interface GerberViewerProps {
 }
 
 const LAYER_COLORS: Record<string, string> = {
-  copper: '#c8a020',
+  copper:     '#c8a020',
   soldermask: '#006000',
   silkscreen: '#eeeeee',
   solderpaste: '#888888',
-  outline: '#FF6600',
-  drill: '#ffffff',
+  outline:    '#FF6600',
+  drill:      '#ffffff',
 };
 
-const LAYER_LABELS: Record<string, string> = {
-  copper: 'Copper',
-  soldermask: 'Solder Mask',
-  silkscreen: 'Silkscreen',
-  solderpaste: 'Solder Paste',
-  outline: 'Outline',
-  drill: 'Drill',
-};
+// Maps a gerber filename → human-readable copper layer name.
+// Handles KiCad, Eagle, Altium, and generic naming conventions.
+function getLayerLabel(layer: LayerInfo): string {
+  if (layer.type !== 'copper') {
+    const labels: Record<string, string> = {
+      soldermask:  'Solder Mask',
+      silkscreen:  'Silkscreen',
+      solderpaste: 'Solder Paste',
+      outline:     'Board Outline',
+      drill:       'Drill File',
+    };
+    return labels[layer.type] || layer.type;
+  }
+
+  // ── Copper-specific label disambiguation ──────────────────────
+  const fn = (layer.filename || '').toLowerCase();
+
+  // KiCad exports: F.Cu.gbr, In1.Cu.gbr, B.Cu.gbr
+  if (fn.includes('f.cu') || fn.includes('f_cu') || fn.includes('.gtl') || fn.includes('top.cu') || fn.endsWith('.cmp'))
+    return 'Top Copper (F.Cu)';
+  if (fn.includes('b.cu') || fn.includes('b_cu') || fn.includes('.gbl') || fn.includes('bot.cu') || fn.endsWith('.sol'))
+    return 'Bottom Copper (B.Cu)';
+
+  // Inner copper layers
+  const innerMatch = fn.match(/in(\d+)\.cu|inner(\d+)|int(\d+)|in(\d+)_cu|l(\d+)cu/i);
+  if (innerMatch) {
+    const n = innerMatch[1] || innerMatch[2] || innerMatch[3] || innerMatch[4] || innerMatch[5];
+    return `Inner Layer ${n} (In${n}.Cu)`;
+  }
+
+  // Eagle: .g2, .g3, .g4 = inner layers; .gtl = top, .gbl = bottom
+  if (fn.endsWith('.g2')) return 'Inner Layer 1 (In1.Cu)';
+  if (fn.endsWith('.g3')) return 'Inner Layer 2 (In2.Cu)';
+  if (fn.endsWith('.g4')) return 'Inner Layer 3 (In3.Cu)';
+
+  // Altium: Signal1.gbr, Signal2.gbr
+  const signalMatch = fn.match(/signal(\d+)/i);
+  if (signalMatch) return `Signal Layer ${signalMatch[1]}`;
+
+  // Side-based fallback
+  if (layer.side === 'top')    return 'Top Copper';
+  if (layer.side === 'bottom') return 'Bottom Copper';
+  if (layer.side === 'inner')  return 'Inner Copper';
+
+  return 'Copper Layer';
+}
+
+// Returns only layers that are "functional" — i.e. have a meaningful parseable filename.
+// Strips true duplicates (same type+side with a non-descriptive generic filename).
+function deduplicateLayers(layers: LayerInfo[]): LayerInfo[] {
+  const seen = new Set<string>();
+  const useful: LayerInfo[] = [];
+
+  // Known functional types
+  const FUNCTIONAL_TYPES = new Set(['copper', 'soldermask', 'silkscreen', 'solderpaste', 'outline', 'drill']);
+
+  for (const layer of layers) {
+    if (!FUNCTIONAL_TYPES.has(layer.type)) continue;
+    if (!layer.filename) continue;
+
+    const label = getLayerLabel(layer);
+    const key = `${label}__${layer.side}`;
+
+    // For copper, allow multiple if labels differ (inner layers)
+    if (!seen.has(key)) {
+      seen.add(key);
+      useful.push(layer);
+    }
+  }
+
+  return useful;
+}
 
 export default function GerberViewer({ file }: GerberViewerProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
@@ -38,41 +102,32 @@ export default function GerberViewer({ file }: GerberViewerProps) {
   const [bottomSvg, setBottomSvg] = useState('');
   const [layers, setLayers] = useState<LayerInfo[]>([]);
   const [boardDimensions, setBoardDimensions] = useState<{ width: number; height: number; units: string } | null>(null);
-  
+
   const [activeView, setActiveView] = useState<'top' | 'bottom'>('top');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
   const [isPanelExpanded, setIsPanelExpanded] = useState(false);
-  const [isolatedLayer, setIsolatedLayer] = useState<string | null>(null);
 
   const dragStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const loadedFile = useRef<File | null>(null);
+
+  // Deduplicated layer list (computed from raw layers)
+  const cleanLayers = deduplicateLayers(layers);
 
   const toggleLayer = (filename: string) => {
     setVisibility(prev => ({ ...prev, [filename]: !prev[filename] }));
   };
 
   const showAll = () => {
-    setVisibility(Object.fromEntries(layers.map(l => [l.filename, true])));
-    setIsolatedLayer(null);
+    setVisibility(Object.fromEntries(cleanLayers.map(l => [l.filename, true])));
   };
 
   const hideAll = () => {
-    setVisibility(Object.fromEntries(layers.map(l => [l.filename, false])));
-    setIsolatedLayer(null);
-  };
-
-  const isolateLayer = (filename: string) => {
-    if (isolatedLayer === filename) {
-      setIsolatedLayer(null);
-      setVisibility(Object.fromEntries(layers.map(l => [l.filename, true])));
-    } else {
-      setIsolatedLayer(filename);
-      setVisibility(Object.fromEntries(layers.map(l => [l.filename, l.filename === filename])));
-    }
+    setVisibility(Object.fromEntries(cleanLayers.map(l => [l.filename, false])));
   };
 
   useEffect(() => {
@@ -125,11 +180,16 @@ export default function GerberViewer({ file }: GerberViewerProps) {
     renderFile();
   }, [file]);
 
+  // ── Zoom on wheel — but ONLY when pointer is NOT over the stackup panel ──────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
+      // If the event target is inside the stackup panel, let it scroll normally
+      if (panelRef.current && panelRef.current.contains(e.target as Node)) {
+        return; // don't prevent default — allow native scroll
+      }
       e.preventDefault();
       const delta = e.deltaY * -0.01;
       setZoom(prev => Math.max(0.1, Math.min(10, prev * (1 + delta * 0.1))));
@@ -140,6 +200,8 @@ export default function GerberViewer({ file }: GerberViewerProps) {
   }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Don't start drag if clicking inside the panel
+    if (panelRef.current && panelRef.current.contains(e.target as Node)) return;
     setIsDragging(true);
     dragStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
   };
@@ -156,10 +218,10 @@ export default function GerberViewer({ file }: GerberViewerProps) {
 
   const currentSvg = activeView === 'top' ? topSvg : bottomSvg;
 
-  // ── Inject responsive styles into SVG string ────────────────────────────────
+  // ── Inject visibility CSS into SVG ──────────────────────────────────────────
   const getAugmentedSvg = (svgStr: string) => {
     if (!svgStr) return '';
-    const styleRules = layers.map(l => {
+    const styleRules = cleanLayers.map(l => {
       const isVisible = visibility[l.filename] !== false;
       if (isVisible) return '';
       const classMap: Record<string, string> = { copper: 'cu', silkscreen: 'ss', soldermask: 'sm', outline: 'out', solderpaste: 'sp' };
@@ -170,14 +232,15 @@ export default function GerberViewer({ file }: GerberViewerProps) {
     return svgStr.replace('</svg>', `<style>${styleRules}</style></svg>`);
   };
 
+  // Group layers for the panel
   const panelGroups = [
     {
       title: activeView === 'top' ? 'Top Side' : 'Bottom Side',
-      items: layers.filter(l => l.side === activeView || (l.side === 'all' && l.type !== 'outline' && l.type !== 'drill')),
+      items: cleanLayers.filter(l => l.side === activeView || (l.side === 'all' && l.type !== 'outline' && l.type !== 'drill')),
     },
     {
       title: 'Mechanical',
-      items: layers.filter(l => l.type === 'outline' || l.type === 'drill'),
+      items: cleanLayers.filter(l => l.type === 'outline' || l.type === 'drill'),
     },
   ].filter(g => g.items.length > 0);
 
@@ -189,7 +252,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
           <Layers className="w-4 h-4 text-[#00cc55]" />
           <span className="text-sm font-bold tracking-wide">Gerber Viewer</span>
           {status === 'done' && (
-            <span className="text-xs text-text-muted ml-2">({layers.length} layers)</span>
+            <span className="text-xs text-text-muted ml-2">({cleanLayers.length} layers)</span>
           )}
         </div>
         <div className="flex items-center gap-4">
@@ -243,9 +306,18 @@ export default function GerberViewer({ file }: GerberViewerProps) {
             </div>
           )}
 
-          {/* Floating Stackup Panel */}
+          {/* Floating Stackup Panel — isolated from the zoom/drag container */}
           {status === 'done' && (
-            <div className={`absolute top-4 left-4 max-h-[calc(100%-2rem)] bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col shadow-2xl ring-1 ring-white/5 transition-all duration-300 z-30 overflow-hidden ${isPanelExpanded ? 'w-60' : 'w-auto'}`}>
+            <div
+              ref={panelRef}
+              // stopPropagation ensures clicks/scroll inside panel don't bubble to the viewer
+              onClick={e => e.stopPropagation()}
+              className={`absolute top-4 left-4 bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col shadow-2xl ring-1 ring-white/5 transition-all duration-300 z-30 ${isPanelExpanded ? 'w-60' : 'w-auto'}`}
+              style={{
+                // Panel height capped; inner list scrolls independently
+                maxHeight: 'calc(100% - 2rem)',
+              }}
+            >
               {!isPanelExpanded ? (
                 <button
                   onClick={() => setIsPanelExpanded(true)}
@@ -256,33 +328,55 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                 </button>
               ) : (
                 <>
-                  <div className="px-3 py-2.5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                  {/* Panel header — fixed, never scrolls */}
+                  <div className="flex-shrink-0 px-3 py-2.5 border-b border-white/5 flex items-center justify-between bg-white/[0.02] rounded-t-2xl">
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#00cc55] animate-pulse" />
                       <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00ff6a]">PCB Stackup</span>
                     </div>
-                    <button onClick={() => setIsPanelExpanded(false)} className="p-0.5 hover:bg-white/10 rounded text-zinc-500 hover:text-white"><X className="w-3 h-3" /></button>
+                    <button onClick={() => setIsPanelExpanded(false)} className="p-0.5 hover:bg-white/10 rounded text-zinc-500 hover:text-white">
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto py-1 custom-scrollbar">
-                    <div className="px-3 py-2 border-b border-white/5 flex gap-2">
-                      <button onClick={() => setActiveView('top')} className={`flex-1 py-1 rounded text-[9px] font-bold ${activeView === 'top' ? 'bg-[#00cc55] text-black' : 'bg-zinc-900 text-zinc-400'}`}>TOP</button>
-                      <button onClick={() => setActiveView('bottom')} className={`flex-1 py-1 rounded text-[9px] font-bold ${activeView === 'bottom' ? 'bg-[#00cc55] text-black' : 'bg-zinc-900 text-zinc-400'}`}>BOT</button>
-                    </div>
+                  {/* TOP / BOT toggle — fixed */}
+                  <div className="flex-shrink-0 px-3 py-2 border-b border-white/5 flex gap-2">
+                    <button
+                      onClick={() => setActiveView('top')}
+                      className={`flex-1 py-1 rounded text-[9px] font-bold ${activeView === 'top' ? 'bg-[#00cc55] text-black' : 'bg-zinc-900 text-zinc-400'}`}
+                    >TOP</button>
+                    <button
+                      onClick={() => setActiveView('bottom')}
+                      className={`flex-1 py-1 rounded text-[9px] font-bold ${activeView === 'bottom' ? 'bg-[#00cc55] text-black' : 'bg-zinc-900 text-zinc-400'}`}
+                    >BOT</button>
+                  </div>
+
+                  {/* Layer list — this div SCROLLS independently */}
+                  <div
+                    className="flex-1 overflow-y-auto py-1 custom-scrollbar"
+                    // Stop wheel events from bubbling up to the main container
+                    onWheel={e => e.stopPropagation()}
+                  >
                     {panelGroups.map((group, gi) => (
                       <div key={gi} className="mt-2">
-                        <div className="px-3 py-1 text-[8px] font-black text-[#00cc55]/60 uppercase">{group.title}</div>
+                        <div className="px-3 py-1 text-[8px] font-black text-[#00cc55]/60 uppercase tracking-widest">
+                          {group.title}
+                        </div>
                         {group.items.map(layer => {
                           const isVisible = visibility[layer.filename] !== false;
+                          const label = getLayerLabel(layer);
                           return (
                             <button
                               key={layer.filename}
                               onClick={() => toggleLayer(layer.filename)}
-                              className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/[0.05] text-left ${!isVisible ? 'opacity-40' : ''}`}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/[0.05] text-left transition-opacity ${!isVisible ? 'opacity-40' : 'opacity-100'}`}
                             >
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: LAYER_COLORS[layer.type] || '#888' }} />
+                              <div
+                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: LAYER_COLORS[layer.type] || '#888' }}
+                              />
                               <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-bold text-white truncate">{LAYER_LABELS[layer.type] || layer.type}</div>
+                                <div className="text-[10px] font-bold text-white truncate">{label}</div>
                               </div>
                               <div className={isVisible ? 'text-[#00cc55]' : 'text-zinc-700'}>
                                 {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
@@ -294,7 +388,8 @@ export default function GerberViewer({ file }: GerberViewerProps) {
                     ))}
                   </div>
 
-                  <div className="px-3 py-2 border-t border-white/5 flex justify-between">
+                  {/* ALL / NONE footer — fixed */}
+                  <div className="flex-shrink-0 px-3 py-2 border-t border-white/5 flex justify-between rounded-b-2xl">
                     <button onClick={showAll} className="text-[9px] font-bold text-[#00cc55]/80 hover:text-[#00cc55]">ALL</button>
                     <button onClick={hideAll} className="text-[9px] font-bold text-zinc-500 hover:text-white">NONE</button>
                   </div>
@@ -345,6 +440,7 @@ export default function GerberViewer({ file }: GerberViewerProps) {
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent; }
       `}</style>
     </div>
   );

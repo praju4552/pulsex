@@ -191,7 +191,10 @@ export const updateProfile = async (req: Request, res: Response) => {
             name, phone, 
             streetAddress, apartment, city, state, zip, country,
             secondaryLabel, secondaryStreetAddress, secondaryApartment, 
-            secondaryCity, secondaryState, secondaryZip, secondaryCountry 
+            secondaryCity, secondaryState, secondaryZip, secondaryCountry,
+            // Billing address
+            billingStreetAddress, billingApartment, billingCity, billingState, billingZip, billingCountry,
+            gstNumber
         } = req.body;
 
         const userId = (req.user as any)?.userId;
@@ -216,7 +219,15 @@ export const updateProfile = async (req: Request, res: Response) => {
                 secondaryCity,
                 secondaryState,
                 secondaryZip,
-                secondaryCountry
+                secondaryCountry,
+                // Billing address
+                billingStreetAddress,
+                billingApartment,
+                billingCity,
+                billingState,
+                billingZip,
+                billingCountry,
+                gstNumber: gstNumber || null,
             }
         });
 
@@ -227,6 +238,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Failed to update profile' });
     }
 };
+
 
 /**
  * WhatsApp OTP Request

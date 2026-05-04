@@ -31,7 +31,20 @@ console.log(`[ENV] RAZORPAY_KEY_ID  = ${process.env.RAZORPAY_KEY_ID   || '⚠️
 console.log(`[ENV] KEY_SECRET loaded = ${process.env.RAZORPAY_KEY_SECRET ? `YES (${process.env.RAZORPAY_KEY_SECRET.length} chars)` : '⚠️  NOT SET'}`);
 console.log(`[ENV] .env path tried  = ${envPath}`);
 
+import { deepLog } from './utils/logger';
+
 const app = express();
+
+deepLog('[BOOT] PulseX Backend starting up...');
+
+// 🪵 Deep request logger for Hostinger diagnostics
+app.use((req, res, next) => {
+    deepLog(`[REQ] ${req.method} ${req.url} - IP: ${req.ip}`);
+    if (req.url.includes('upload')) {
+        deepLog(`[DEBUG] Upload Headers: ${JSON.stringify(req.headers)}`);
+    }
+    next();
+});
 
 app.use(
   helmet({
@@ -184,7 +197,7 @@ app.get('*', (req, res) => {
     }
 });
 
-app.listen(Number(PORT), '0.0.0.0', () => {
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 

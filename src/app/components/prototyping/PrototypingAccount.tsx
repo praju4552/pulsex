@@ -38,6 +38,14 @@ export default function PrototypingAccount() {
     secondaryState: user?.secondaryState || '',
     secondaryZip: user?.secondaryZip || '',
     secondaryCountry: user?.secondaryCountry || 'IN',
+    // Billing address
+    billingStreetAddress: (user as any)?.billingStreetAddress || '',
+    billingApartment: (user as any)?.billingApartment || '',
+    billingCity: (user as any)?.billingCity || '',
+    billingState: (user as any)?.billingState || '',
+    billingZip: (user as any)?.billingZip || '',
+    billingCountry: (user as any)?.billingCountry || 'IN',
+    gstNumber: (user as any)?.gstNumber || '',
   });
 
   useEffect(() => {
@@ -321,13 +329,55 @@ export default function PrototypingAccount() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="border-t border-border-glass" />
+
+                  {/* Billing Address */}
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-blue-400 mb-3 flex items-center gap-2">
+                      <span className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center text-[10px] font-black text-blue-400">₹</span>
+                      Billing Address
+                    </p>
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={formData.gstNumber}
+                        onChange={e => setFormData({...formData, gstNumber: e.target.value.toUpperCase()})}
+                        placeholder="GST Number (GSTIN, optional)"
+                        maxLength={15}
+                        className="w-full bg-bg-primary/60 border border-blue-500/30 rounded-xl px-4 py-2 text-sm focus:border-blue-400 focus:outline-none font-mono tracking-wider"
+                      />
+                      <input
+                        type="text"
+                        value={formData.billingStreetAddress}
+                        onChange={e => setFormData({...formData, billingStreetAddress: e.target.value})}
+                        placeholder="Billing Street Address"
+                        className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={formData.billingApartment}
+                        onChange={e => setFormData({...formData, billingApartment: e.target.value})}
+                        placeholder="Apartment (Optional)"
+                        className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <input type="text" value={formData.billingCity} onChange={e => setFormData({...formData, billingCity: e.target.value})} placeholder="City" className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none" />
+                        <input type="text" value={formData.billingState} onChange={e => setFormData({...formData, billingState: e.target.value})} placeholder="State" className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input type="text" value={formData.billingZip} onChange={e => setFormData({...formData, billingZip: e.target.value})} placeholder="ZIP" className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none" />
+                        <input type="text" value={formData.billingCountry} onChange={e => setFormData({...formData, billingCountry: e.target.value})} placeholder="Country" className="w-full bg-bg-primary/60 border border-border-glass rounded-xl px-4 py-2 text-sm focus:border-[#00cc55] focus:outline-none" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {/* Primary Address Display */}
                   {user.streetAddress ? (
                     <div className="p-4 rounded-xl border border-[#00cc55]/20 bg-[#00cc55]/5">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#00cc55] mb-2">Primary</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#00cc55] mb-2">Primary Shipping</p>
                       <p className="text-text-primary font-medium text-sm">{user.streetAddress}</p>
                       {user.apartment && <p className="text-text-secondary text-sm">{user.apartment}</p>}
                       <p className="text-text-secondary text-sm">{user.city}, {user.state} {user.zip}</p>
@@ -355,6 +405,23 @@ export default function PrototypingAccount() {
                       <button onClick={() => setIsEditing(true)} className="text-[#00cc55] text-xs font-black uppercase tracking-wider">Add Address</button>
                     </div>
                   )}
+
+                  {/* Billing Address Display */}
+                  <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-2">Billing Address</p>
+                    {(user as any).gstNumber && (
+                      <p className="text-xs font-mono text-yellow-400 font-bold mb-1">GSTIN: {(user as any).gstNumber}</p>
+                    )}
+                    {(user as any).billingStreetAddress ? (
+                      <>
+                        <p className="text-text-primary font-medium text-sm">{(user as any).billingStreetAddress}</p>
+                        <p className="text-text-secondary text-sm">{(user as any).billingCity}, {(user as any).billingState} {(user as any).billingZip}</p>
+                        <p className="text-text-muted uppercase tracking-widest text-[10px] pt-1">{(user as any).billingCountry}</p>
+                      </>
+                    ) : (
+                      <p className="text-text-muted text-xs">Same as shipping address</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -63,7 +63,7 @@ const signup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             }
         });
         const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);
-        const token = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, auth_1.JWT_SECRET, { expiresIn: auth_1.TOKEN_EXPIRY });
+        const token = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, auth_1.JWT_SECRET, { expiresIn: user.role === 'SUPER_ADMIN' ? '24h' : auth_1.TOKEN_EXPIRY });
         res.status(201).json({ message: 'Prototyping user registered successfully', user: userWithoutPassword, token });
     }
     catch (error) {
@@ -102,7 +102,7 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             where: { id: protoUser.id },
             data: { failedLoginAttempts: 0, lockedUntil: null }
         });
-        const token = jsonwebtoken_1.default.sign({ userId: protoUser.id, role: protoUser.role, email: protoUser.email }, auth_1.JWT_SECRET, { expiresIn: auth_1.TOKEN_EXPIRY });
+        const token = jsonwebtoken_1.default.sign({ userId: protoUser.id, role: protoUser.role, email: protoUser.email }, auth_1.JWT_SECRET, { expiresIn: protoUser.role === 'SUPER_ADMIN' ? '24h' : auth_1.TOKEN_EXPIRY });
         const refreshToken = jsonwebtoken_1.default.sign({ userId: protoUser.id }, process.env.REFRESH_SECRET || 'fallback-refresh-secret', { expiresIn: '7d' });
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -154,7 +154,7 @@ const googleLogin = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 data: { googleId }
             });
         }
-        const jwtToken = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, auth_1.JWT_SECRET, { expiresIn: auth_1.TOKEN_EXPIRY });
+        const jwtToken = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, auth_1.JWT_SECRET, { expiresIn: user.role === 'SUPER_ADMIN' ? '24h' : auth_1.TOKEN_EXPIRY });
         const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);
         res.json({ message: 'Google login successful', user: userWithoutPassword, token: jwtToken });
     }
@@ -170,7 +170,9 @@ exports.googleLogin = googleLogin;
 const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { name, phone, streetAddress, apartment, city, state, zip, country, secondaryLabel, secondaryStreetAddress, secondaryApartment, secondaryCity, secondaryState, secondaryZip, secondaryCountry } = req.body;
+        const { name, phone, streetAddress, apartment, city, state, zip, country, secondaryLabel, secondaryStreetAddress, secondaryApartment, secondaryCity, secondaryState, secondaryZip, secondaryCountry, 
+        // Billing address
+        billingStreetAddress, billingApartment, billingCity, billingState, billingZip, billingCountry, gstNumber } = req.body;
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Authentication required' });
@@ -192,7 +194,15 @@ const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 secondaryCity,
                 secondaryState,
                 secondaryZip,
-                secondaryCountry
+                secondaryCountry,
+                // Billing address
+                billingStreetAddress,
+                billingApartment,
+                billingCity,
+                billingState,
+                billingZip,
+                billingCountry,
+                gstNumber: gstNumber || null,
             }
         });
         const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);
@@ -273,7 +283,7 @@ const whatsappVerifyOtp = (req, res) => __awaiter(void 0, void 0, void 0, functi
                 data: { whatsappId: phone }
             });
         }
-        const jwtToken = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, auth_1.JWT_SECRET, { expiresIn: auth_1.TOKEN_EXPIRY });
+        const jwtToken = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, auth_1.JWT_SECRET, { expiresIn: user.role === 'SUPER_ADMIN' ? '24h' : auth_1.TOKEN_EXPIRY });
         const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);
         res.json({ message: 'WhatsApp login successful', user: userWithoutPassword, token: jwtToken });
     }

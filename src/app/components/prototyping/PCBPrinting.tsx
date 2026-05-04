@@ -70,7 +70,7 @@ const DEFAULT_PCB_PRICING: any = {
   baseCost:    700,   // INR — Initial Base Cost / Setup Fee
   costPerCm2:  12,    // INR per sq. cm of board area
   layerMult:   { '1': 0.8, '2': 1.0, '4': 2.0, '6': 3.0, '8': 3.8, '10': 4.5, '12': 4.5, '14': 4.5, '16': 4.5 },
-  materialMult: { 'FR-4': 1.0, 'Flex': 2.5, 'Aluminum': 2.0, 'Copper Core': 2.2, 'Rogers': 3.5, 'PTFE Teflon': 4.0 },
+  materialMult: { 'FR-4': 1.0, 'Proto FR-4': 1.0, 'Flex': 2.5, 'Aluminum': 2.0, 'Copper Core': 2.2, 'Rogers': 3.5, 'PTFE Teflon': 4.0 },
   thicknessMult: { '0.4mm': 1.30, '0.6mm': 1.20, '0.8mm': 1.10, '1.0mm': 1.05, '1.2mm': 1.02, '1.6mm': 1.00, '2.0mm': 1.20 },
   colorMult: { 'Green': 1.0, 'Red': 1.1, 'Yellow': 1.1, 'Blue': 1.1, 'White': 1.1, 'Black': 1.1, 'Purple': 1.1, 'Matte Black': 1.2 },
   finishMult: { 'HASL': 1.0, 'HASL(with lead)': 1.0, 'LeadFree HASL': 1.1, 'ENIG': 1.4, 'OSP': 1.5, 'Hard Gold': 1.5, 'Silver': 1.5, 'Tin': 1.5 },
@@ -202,15 +202,28 @@ const COLORS_PCB = [
 ];
 
 const SHIP = [
-  { id: 'dhl', name: 'DHL Express', days: '7-8 days', price: 150 },
-  { id: 'fedex', name: 'FedEx Intl', days: '7-8 days', price: 150 },
-  { id: 'std', name: 'Standard Post', days: '7-8 days', price: 120 },
-  { id: 'eco', name: 'Economy', days: '10 days', price: 90 },
+  { id: 'fast', name: 'Fast Delivery', days: '2-3', price: 150, desc: 'Priority courier, tracked' },
+  { id: 'normal', name: 'Normal Delivery', days: '5-7', price: 75, desc: 'Standard courier service' },
+  { id: 'pickup', name: 'Store Pickup', days: '0', price: 0, desc: 'Chettiyavilai, Therivilai, Kanyakumari 629154, TN' },
 ];
 
 const BASE_MATERIALS = ['FR-4', 'Proto FR-4', 'Flex', 'Aluminum', 'Copper Core', 'Rogers', 'PTFE Teflon'];
 const LAYER_OPTS = [1, 2, 4, 6, 8, 10, 12, 14, 16];
-const QTY_OPTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+// Proto FR-4: 1-5 individual; all other materials: multiples of 5
+const PROTO_FR4_QTY_OPTS = [1, 2, 3, 4, 5];
+const STANDARD_QTY_OPTS = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100];
+
+function getQtyOpts(baseMaterial: string) {
+  return baseMaterial === 'Proto FR-4' ? PROTO_FR4_QTY_OPTS : STANDARD_QTY_OPTS;
+}
+
+// Clamp qty to nearest valid option for the material
+function clampQty(qty: number, baseMaterial: string) {
+  const opts = getQtyOpts(baseMaterial);
+  if (opts.includes(qty)) return qty;
+  // snap to nearest
+  return opts.reduce((prev, cur) => Math.abs(cur - qty) < Math.abs(prev - qty) ? cur : prev);
+}
 
 // ─── Main Component ──────────────────────────────────────────────────────────────
 
@@ -231,7 +244,7 @@ export default function PCBPrinting() {
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [rawGerberFile, setRawGerberFile] = useState<File | null>(null);
   const [showViewer, setShowViewer] = useState(false);
-  const [ship, setShip] = useState('dhl');
+  const [ship, setShip] = useState('fast');
   const [showHistory, setShowHistory] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [openSections, setOpenSections] = useState({ spec: true, highspec: false, advanced: false });
@@ -250,7 +263,7 @@ export default function PCBPrinting() {
     dimX: 100,
     dimY: 100,
     dimUnit: 'mm',
-    qty: 1,
+    qty: 5,
     productType: 'Industrial/Consumer electronics',
     differentDesign: 1,
     deliveryFormat: 'Single PCB',
@@ -288,6 +301,12 @@ export default function PCBPrinting() {
       newSpec.dimX = Math.min(newSpec.dimX, 100);
       newSpec.dimY = Math.min(newSpec.dimY, 100);
       if (newSpec.silkscreen !== 'None') newSpec.silkscreen = 'None';
+      // Clamp qty to Proto FR-4 range (1-5)
+      newSpec.qty = clampQty(newSpec.qty, 'Proto FR-4');
+    }
+    if (k === 'baseMaterial' && v !== 'Proto FR-4') {
+      // Switching away from Proto FR-4 — ensure qty is a multiple of 5
+      newSpec.qty = clampQty(newSpec.qty, v as string);
     }
     if (newSpec.baseMaterial === 'Proto FR-4') {
       if (k === 'dimX' && newSpec.dimX > 100) newSpec.dimX = 100;
@@ -299,7 +318,8 @@ export default function PCBPrinting() {
 
   const priceResult = calcPrice(spec, pcbPricing);
   const shipCost = SHIP.find(s => s.id === ship)?.price || 0;
-  const grandTotal = priceResult.preGst;
+  // Grand total = PCB subtotal (preGst) + GST + shipping
+  const grandTotal = priceResult.preGst + priceResult.gst + shipCost;
 
   const [parseStatus, setParseStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [parseResult, setParseResult] = useState<null | {
@@ -750,14 +770,27 @@ export default function PCBPrinting() {
                 </div>
               </FieldRow>
 
-              <FieldRow label="PCB Qty" tooltip="Number of boards.">
-                <select
-                  value={spec.qty}
-                  onChange={e => set('qty', parseInt(e.target.value))}
-                  className="px-4 py-2 bg-surface-100 border border-border-glass rounded-lg text-sm text-text-secondary focus:outline-none focus:border-accent-primary"
-                >
-                  {QTY_OPTS.map(q => <option key={q} value={q}>{q}</option>)}
-                </select>
+              <FieldRow label="PCB Qty" tooltip={spec.baseMaterial === 'Proto FR-4' ? 'Proto FR-4: select 1–5 boards.' : 'Select quantity in multiples of 5.'}>
+                <div className="flex flex-wrap gap-2">
+                  {getQtyOpts(spec.baseMaterial).map(q => (
+                    <button
+                      key={q}
+                      onClick={() => set('qty', q)}
+                      className={`min-w-[2.75rem] h-9 px-2 rounded-lg border text-xs font-bold transition-all ${
+                        spec.qty === q
+                          ? 'border-accent-primary bg-accent-primary/15 text-[#008800] dark:text-accent-primary'
+                          : 'border-border-glass text-text-secondary hover:border-accent-primary/40 hover:text-text-primary'
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-text-muted mt-1.5">
+                  {spec.baseMaterial === 'Proto FR-4'
+                    ? 'Proto FR-4 supports 1–5 boards per order.'
+                    : 'Standard orders are in multiples of 5.'}
+                </p>
               </FieldRow>
 
             </div>
@@ -1009,10 +1042,23 @@ export default function PCBPrinting() {
                 {spec.castellated === 'Yes' && <div className="flex justify-between text-amber-400 text-xs"><span>Castellated Holes</span><span>+₹300</span></div>}
                 {spec.viaCovering === 'Epoxy Filled & Capped' && <div className="flex justify-between text-amber-400 text-xs"><span>Via Epoxy Fill</span><span>+₹400</span></div>}
 
-                <div className="border-t border-border-glass pt-3 space-y-1.5">
-                  <div className="flex justify-between font-bold">
-                    <span className="text-text-secondary">PCB Total (excl. GST)</span>
-                    <span className="text-accent-primary">₹{priceResult.preGst.toLocaleString('en-IN')}</span>
+                <div className="border-t border-border-glass pt-3 space-y-2">
+                  {/* Per-board price × qty breakdown */}
+                  <div className="flex justify-between text-xs text-text-secondary">
+                    <span>PCB (per board)</span>
+                    <span>₹{Math.round(priceResult.preGst / spec.qty).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-text-secondary">
+                    <span>× Quantity ({spec.qty} pcs)</span>
+                    <span>₹{priceResult.preGst.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-text-secondary">
+                    <span>GST (18%)</span>
+                    <span>₹{priceResult.gst.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-text-secondary">
+                    <span>Shipping ({SHIP.find(s => s.id === ship)?.name})</span>
+                    <span>₹{shipCost}</span>
                   </div>
                 </div>
 
@@ -1021,12 +1067,15 @@ export default function PCBPrinting() {
                   <div className="space-y-1.5">
                     {SHIP.map(s => (
                       <button key={s.id} onClick={() => setShip(s.id)}
-                        className={`w-full p-2.5 rounded-lg border text-left text-xs transition-all flex justify-between items-center ${ship === s.id ? 'border-accent-primary bg-accent-primary/10 shadow-sm shadow-accent-primary/5' : 'border-border-glass bg-surface-100/50 hover:border-accent-primary/30'}`}>
-                        <div>
-                          <span className="font-bold block text-text-primary">{s.name}</span>
-                          <span className="text-text-muted font-medium">{s.days} days</span>
+                        className={`w-full p-2.5 rounded-lg border text-left text-xs transition-all ${ship === s.id ? 'border-accent-primary bg-accent-primary/10 shadow-sm shadow-accent-primary/5' : 'border-border-glass bg-surface-100/50 hover:border-accent-primary/30'}`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="font-bold block text-text-primary">{s.name}</span>
+                            <span className="text-text-muted font-medium">{s.days === '0' ? 'Self-collection' : `${s.days} business days`}</span>
+                            {s.id === 'pickup' && <span className="text-[10px] text-text-muted block mt-0.5 max-w-[180px]">{s.desc}</span>}
+                          </div>
+                          <span className="text-accent-primary font-bold ml-2 shrink-0">{s.price === 0 ? 'FREE' : `₹${s.price}`}</span>
                         </div>
-                        <span className="text-accent-primary font-bold">₹{s.price}</span>
                       </button>
                     ))}
                   </div>
@@ -1035,7 +1084,7 @@ export default function PCBPrinting() {
                 <div className="border-t border-border-glass pt-3 flex justify-between items-end">
                   <div>
                     <span className="font-bold text-text-primary block">Grand Total</span>
-                    <span className="text-[10px] text-text-muted">(Shipping & GST evaluated at checkout)</span>
+                    <span className="text-[10px] text-text-muted">(PCB + GST 18% + Shipping)</span>
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-accent-primary to-emerald-400">₹{grandTotal.toLocaleString('en-IN')}</span>
@@ -1127,7 +1176,7 @@ export default function PCBPrinting() {
                     {
                       title: 'Select Quantity and Shipping',
                       desc: 'Choose your order quantity from the dropdown. The price-per-board drops significantly for larger quantities. Pick a shipping method that suits your timeline and budget.',
-                      tip: 'DHL Express (3–5 days) is recommended for urgent projects. Economy shipping (25–45 days) is best for non-urgent bulk orders.',
+                      tip: 'Fast Delivery (2-3 days) is recommended for urgent projects. Store Pickup is free if you can collect in person from our Kanyakumari location.',
                     },
                     {
                       title: 'Save to Cart & Checkout',

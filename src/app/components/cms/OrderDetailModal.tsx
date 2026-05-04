@@ -86,9 +86,32 @@ export default function OrderDetailModal({ order, onClose, onUpdated }: Props) {
               <div><span className="text-gray-500">Name</span><p className="font-semibold">{order.firstName} {order.lastName}</p></div>
               <div><span className="text-gray-500">Email</span><p className="font-semibold">{order.email}</p></div>
               <div><span className="text-gray-500">Phone</span><p className="font-semibold">{order.phone}</p></div>
-              <div><span className="text-gray-500">Address</span><p className="font-semibold text-xs leading-tight">{order.streetAddress}{order.apartment ? `, ${order.apartment}` : ''}, {order.city}, {order.state} {order.zip}, {order.country}</p></div>
+              {order.gstNumber && <div><span className="text-gray-500">GSTIN</span><p className="font-semibold font-mono text-yellow-400">{order.gstNumber}</p></div>}
             </div>
           </section>
+
+          {/* Shipping Address */}
+          <section>
+            <h4 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3">Shipping Address</h4>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              {order.streetAddress}{order.apartment ? `, ${order.apartment}` : ''}<br />
+              {order.city}, {order.state} {order.zip}<br />
+              {order.country}
+            </p>
+          </section>
+
+          {/* Billing Address — only show if different from shipping */}
+          {order.billingStreetAddress && order.billingStreetAddress !== order.streetAddress && (
+            <section>
+              <h4 className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-3">Billing Address</h4>
+              {order.billingName && <p className="text-sm font-semibold text-white mb-1">{order.billingName}</p>}
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {order.billingStreetAddress}{order.billingApartment ? `, ${order.billingApartment}` : ''}<br />
+                {order.billingCity}, {order.billingState} {order.billingZip}<br />
+                {order.billingCountry}
+              </p>
+            </section>
+          )}
 
           {/* Order Info */}
           <section>

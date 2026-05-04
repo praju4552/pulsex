@@ -88,6 +88,7 @@ const FINAL_PRICING = {
         },
         materialMult: {
             'FR-4': 1.0,
+            'Proto FR-4': 1.0,
             'Flex': 2.5,
             'Aluminum': 2.0,
             'Copper Core': 2.2,

@@ -126,7 +126,7 @@ export default function SEMTEM() {
               </div>
               <div className="flex flex-col gap-1 px-6 py-5">
                 <p className="text-[10px] font-bold text-[#00cc55] uppercase tracking-widest mb-1">Phone</p>
-                <a href="tel:+918296828948" className="text-sm font-semibold text-text-primary hover:text-[#00cc55] transition-colors">+91 82968 28948</a>
+                <a href="tel:+919445992044" className="text-sm font-semibold text-text-primary hover:text-[#00cc55] transition-colors">+91 9445992044</a>
               </div>
               <div className="flex flex-col gap-1 px-6 py-5">
                 <p className="text-[10px] font-bold text-[#00cc55] uppercase tracking-widest mb-1">Address</p>

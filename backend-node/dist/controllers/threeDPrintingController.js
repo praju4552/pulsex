@@ -13,20 +13,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.downloadFile = exports.createOrder = exports.getFileStatus = exports.uploadAndProcess = void 0;
-const client_1 = require("@prisma/client");
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const threeDService_1 = require("../services/threeDService");
-const prisma = new client_1.PrismaClient();
+const db_1 = __importDefault(require("../db"));
+const logger_1 = require("../utils/logger");
 const uploadAndProcess = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const file = req.file;
         const userId = req.body.userId; // Optional, for logged in users
         if (!file) {
+            (0, logger_1.deepLog)('[UPLOAD] FAILED: No file uploaded');
             return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
+        (0, logger_1.deepLog)(`[UPLOAD] Starting process for ${file.originalname} (${file.size} bytes)`);
         // 1. Create file record in DB
-        const dbFile = yield prisma.threeDFile.create({
+        (0, logger_1.deepLog)(`[UPLOAD] Creating DB record...`);
+        const dbFile = yield db_1.default.threeDFile.create({
             data: {
                 userId: userId || null,
                 filePath: file.path,
@@ -35,10 +38,11 @@ const uploadAndProcess = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 uploadStatus: 'PROCESSING',
             },
         });
-        // 2. Trigger asynchronous processing (to fulfill non-blocking requirement)
-        // In production with Redis, this would be a BullMQ job.
-        // Here we use an async wrapper that doesn't block the response.
+        (0, logger_1.deepLog)(`[UPLOAD] DB record created: ${dbFile.id}`);
+        // 2. Trigger asynchronous processing
+        (0, logger_1.deepLog)(`[UPLOAD] Triggering background processing for ${dbFile.id}...`);
         processMeshInBackground(dbFile.id, file.path, dbFile.fileType);
+        (0, logger_1.deepLog)(`[UPLOAD] Returning success to client.`);
         return res.json({
             success: true,
             message: 'File uploaded and processing started',
@@ -46,6 +50,7 @@ const uploadAndProcess = (req, res) => __awaiter(void 0, void 0, void 0, functio
         });
     }
     catch (error) {
+        (0, logger_1.deepLog)(`[UPLOAD] ERROR: ${error.message}`);
         console.error('3D Upload Error:', error);
         return res.status(500).json({ success: false, error: error.message });
     }
@@ -53,8 +58,11 @@ const uploadAndProcess = (req, res) => __awaiter(void 0, void 0, void 0, functio
 exports.uploadAndProcess = uploadAndProcess;
 const processMeshInBackground = (fileId, filePath, fileType) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const metadata = yield threeDService_1.ThreeDService.getMetadata(filePath, fileType);
-        yield prisma.threeDMetadata.create({
+        const absolutePath = path_1.default.isAbsolute(filePath) ? filePath : path_1.default.join(process.cwd(), filePath);
+        (0, logger_1.deepLog)(`[BACKGROUND] Starting for ${fileId} at ${absolutePath}`);
+        const metadata = yield threeDService_1.ThreeDService.getMetadata(absolutePath, fileType);
+        (0, logger_1.deepLog)(`[BACKGROUND] Metadata extracted for ${fileId}`);
+        yield db_1.default.threeDMetadata.create({
             data: {
                 fileId,
                 volume: metadata.volume,
@@ -66,7 +74,7 @@ const processMeshInBackground = (fileId, filePath, fileType) => __awaiter(void 0
                 estimatedPrintTime: metadata.estimatedPrintTime,
             },
         });
-        yield prisma.threeDFile.update({
+        yield db_1.default.threeDFile.update({
             where: { id: fileId },
             data: { uploadStatus: 'COMPLETED' },
         });
@@ -74,7 +82,7 @@ const processMeshInBackground = (fileId, filePath, fileType) => __awaiter(void 0
     }
     catch (error) {
         console.error(`Background processing failed for ${fileId}:`, error);
-        yield prisma.threeDFile.update({
+        yield db_1.default.threeDFile.update({
             where: { id: fileId },
             data: { uploadStatus: 'FAILED' },
         });
@@ -83,7 +91,7 @@ const processMeshInBackground = (fileId, filePath, fileType) => __awaiter(void 0
 const getFileStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { fileId } = req.params;
-        const file = yield prisma.threeDFile.findUnique({
+        const file = yield db_1.default.threeDFile.findUnique({
             where: { id: fileId },
             include: { metadata: true },
         });
@@ -101,7 +109,7 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     try {
         const { userId, fileId, config, price, quantity, customerInfo, shippingInfo } = req.body;
         // 1. Create or Update Config (idempotent for retries)
-        const dbConfig = yield prisma.threeDPrintConfig.upsert({
+        const dbConfig = yield db_1.default.threeDPrintConfig.upsert({
             where: { fileId },
             create: {
                 fileId,
@@ -122,7 +130,7 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             }
         });
         // 2. Create or Update 3D specific order (idempotent for retries)
-        const threeDOrder = yield prisma.threeDOrder.upsert({
+        const threeDOrder = yield db_1.default.threeDOrder.upsert({
             where: { fileId },
             create: {
                 userId: userId || null,
@@ -141,7 +149,7 @@ const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         // 3. Integrate with the GENERAL PrototypingOrder table (as requested: "Orders must automatically map to SuperAdmin")
         // This ensures it shows up in the existing admin dashboard which polls `prototyping-orders`
         const orderRef = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        const protoOrder = yield prisma.prototypingOrder.create({
+        const protoOrder = yield db_1.default.prototypingOrder.create({
             data: {
                 orderRef,
                 firstName: customerInfo.firstName,
@@ -177,7 +185,7 @@ exports.createOrder = createOrder;
 const downloadFile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { fileId } = req.params;
-        const file = yield prisma.threeDFile.findUnique({
+        const file = yield db_1.default.threeDFile.findUnique({
             where: { id: fileId },
         });
         if (!file || !fs_1.default.existsSync(file.filePath)) {

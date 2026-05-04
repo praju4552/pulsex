@@ -1,7 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
-  engineType      = "binary"
-  binaryTargets   = ["native", "debian-openssl-1.1.x"]
+  engineType      = "library"
+  binaryTargets   = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -66,6 +66,16 @@ model PrototypingOrder {
   zip             String
   country         String
 
+  // Billing address (separate from shipping)
+  billingName          String?  // Company or individual name for billing
+  billingStreetAddress String?
+  billingApartment     String?
+  billingCity          String?
+  billingState         String?
+  billingZip           String?
+  billingCountry       String?
+  gstNumber            String?  // GSTIN for tax invoice
+
   // PCB Specs (stored as JSON)
   serviceType     String   // "PCB Printing" | "3D Printing"
   specifications  Json     // Full PCBSpec object or 3D spec
@@ -126,6 +136,15 @@ model PrototypingUser {
   secondaryState         String?
   secondaryZip           String?
   secondaryCountry       String?
+
+  // Billing address (separate from shipping)
+  billingStreetAddress   String?
+  billingApartment       String?
+  billingCity            String?
+  billingState           String?
+  billingZip             String?
+  billingCountry         String?
+  gstNumber              String?  // GSTIN for business customers
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -307,8 +307,8 @@ export default function LaserCutting() {
       },
       qty: quantity,
       pcbPrice: priceDetails?.total || 0,
-      shippingMethod: 'Standard',
-      shippingCost: 0,
+      shippingMethod: 'Fast Delivery',
+      shippingCost: 150,
       image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop',
     };
     let cart: object[] = [];

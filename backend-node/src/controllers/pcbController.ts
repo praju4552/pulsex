@@ -87,6 +87,9 @@ export async function renderPCBGerber(req: Request, res: Response) {
       topSvg: result.topSvg,
       bottomSvg: result.bottomSvg,
       layers: result.layers,
+      boardWidth: result.boardWidth,
+      boardHeight: result.boardHeight,
+      boardUnits: result.boardUnits || 'mm',
     });
   } catch (err) {
     // Clean up temp file on error too

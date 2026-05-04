@@ -98,6 +98,9 @@ function renderPCBGerber(req, res) {
                 topSvg: result.topSvg,
                 bottomSvg: result.bottomSvg,
                 layers: result.layers,
+                boardWidth: result.boardWidth,
+                boardHeight: result.boardHeight,
+                boardUnits: result.boardUnits || 'mm',
             });
         }
         catch (err) {

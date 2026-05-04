@@ -2,8 +2,10 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { deepLog } from '../utils/logger';
 
-// Absolute search path for the Node.js binary on Hostinger
-const HOSTINGER_NODE_PATH = '/opt/alt/alt-nodejs24/root/usr/bin/node';
+// Use Node 18 — matches the runtime that installed node_modules on Hostinger
+// Node 24 is available but packages were compiled/installed with Node 18
+const HOSTINGER_NODE_PATH = '/opt/alt/alt-nodejs18/root/usr/bin/node';
+const WORKER_TIMEOUT_MS = 60_000; // 60 seconds max per render
 
 export interface RenderedGerber {
   topSvg: string;
@@ -27,47 +29,56 @@ export interface RenderedGerber {
  */
 export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber> {
   return new Promise((resolve, reject) => {
-    // Resolve the worker script path. Note: in production, it will be in the 'dist' folder.
     const workerPath = path.join(__dirname, 'gerberWorker.js');
-    
     deepLog(`[GERBER-RENDER] Spawning worker at ${workerPath}`);
 
-    // Create the process
     const child = spawn(HOSTINGER_NODE_PATH, [workerPath]);
 
-    let stdoutData = '';
+    // Accumulate stdout as Buffer chunks to handle large SVG data safely
+    const stdoutChunks: Buffer[] = [];
     let stderrData = '';
 
-    // Pipe the ZIP buffer to the worker's stdin
+    // 60-second safety timeout
+    const timeout = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error('Gerber rendering timed out after 60 seconds'));
+    }, WORKER_TIMEOUT_MS);
+
+    // Pipe ZIP buffer to worker stdin
     child.stdin.write(zipBuffer);
     child.stdin.end();
 
-    child.stdout.on('data', (data) => {
-      stdoutData += data.toString();
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', (data: Buffer) => {
       stderrData += data.toString();
-      // Also log stderr to deep debug via process
       const logLine = data.toString().trim();
       if (logLine) deepLog(`[GERBER-WORKER-STDERR] ${logLine}`);
     });
 
-    child.on('error', (err) => {
+    child.on('error', (err: Error) => {
+      clearTimeout(timeout);
       deepLog(`[GERBER-RENDER] Spawn Error: ${err.message}`);
       reject(new Error(`Failed to start Gerber rendering worker: ${err.message}`));
     });
 
-    child.on('close', (code) => {
+    child.on('close', (code: number | null) => {
+      clearTimeout(timeout);
       deepLog(`[GERBER-RENDER] Worker exited with code ${code}`);
-      
+
       if (code !== 0) {
-          deepLog(`[GERBER-RENDER] FAILED. Stderr: ${stderrData}`);
-          return reject(new Error('Gerber rendering worker failed with exit code ' + code));
+        deepLog(`[GERBER-RENDER] FAILED. Stderr: ${stderrData}`);
+        return reject(new Error('Gerber rendering worker failed with exit code ' + code));
       }
 
+      // Reassemble all stdout chunks into one Buffer, then decode
+      const fullOutput = Buffer.concat(stdoutChunks).toString('utf8');
+      deepLog(`[GERBER-RENDER] stdout bytes received: ${Buffer.concat(stdoutChunks).length}`);
+
       try {
-        const result = JSON.parse(stdoutData);
+        const result = JSON.parse(fullOutput);
         if (result.success) {
           resolve({
             topSvg: result.topSvg,
@@ -81,8 +92,8 @@ export async function renderGerberZip(zipBuffer: Buffer): Promise<RenderedGerber
           reject(new Error(result.error || 'Unknown rendering error'));
         }
       } catch (err) {
-        deepLog(`[GERBER-RENDER] Parse Error: ${stdoutData.slice(0, 100)}...`);
-        reject(new Error('Failed to parse rendering results'));
+        deepLog(`[GERBER-RENDER] JSON Parse Error. First 200 chars: ${fullOutput.slice(0, 200)}`);
+        reject(new Error('Failed to parse Gerber rendering results — output may be truncated'));
       }
     });
   });

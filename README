@@ -1,85 +1,118 @@
- ProtoOrder — Prototyping Services Platform
-A full-stack e-commerce platform for electronics prototyping services — built, deployed, and maintained in production.
-   
-________________________________________
-What It Does
-A production-grade web platform that allows customers to place online orders for electronics prototyping services — including PCB board manufacturing, 3D printing, laser cutting, and electronics project development.
-Customers upload their design files, preview them interactively, select quantities, and complete payment — all in one place. The platform supports multiple file uploads in a single order, which most competitor platforms do not offer.
-________________________________________
-❗ Problem It Solves
+ ProtoOrder - Prototyping Services Platform
+
+A full-stack e-commerce platform for electronics prototyping services - built, deployed, and maintained in production.
+
+Status: Live and Maintained
+Stack: React | Node.js | Python | MySQL
+Deployment: Hostinger
+
+---
+
+ -> What It Does
+
+A production-grade web platform that allows customers to place online orders for electronics prototyping services including PCB board manufacturing, 3D printing, laser cutting, and electronics project development.
+
+Customers upload their design files, preview them interactively, select quantities, and complete payment - all in one place. The platform supports multiple file uploads in a single order, which most competitor platforms do not offer.
+
+---
+
+ -> Problem It Solves
+
 The company was previously accepting orders only offline, forcing customers to visit in person. This limited reach, slowed order processing, and made scaling impossible.
-This platform moved the entire ordering workflow online — bringing the business to customers instead of the other way around.
-________________________________________
-🛠 Tech Stack
-Layer	Technology
-Frontend	React, TypeScript, JavaScript
-Backend	Node.js, REST APIs
-Database	MySQL, Prisma ORM
-Payments	Razorpay (UPI, cards, netbanking)
-Auth	Google OAuth, Email/Password
 
-File Handling	Multi-file upload, Gerber viewer, 3D model viewer
-Deployment	Hostinger (live & maintained)
-Other	Python (file processing utilities)
-________________________________________
-🏗 System Architecture
-Customer Browser
-      │
-      ▼
-  React Frontend (TypeScript)
-      │
-      ├── File Upload (Gerber / STL / DXF files)
-      ├── Gerber Viewer (PCB preview with 0.1mm accuracy)
-      ├── 3D Model Viewer (360° preview)
-      └── Order & Payment UI
-      │
-      ▼
-  Node.js Backend (REST APIs)
-      │
-      ├── Authentication (Google OAuth + Email/Password)
-      ├── Order Management
-      ├── File Processing (Python utilities)
-      └── Razorpay Payment Gateway
-      │
-      ▼
-   MySQL Database (via Prisma ORM)
-      │
-      ▼
-  Hostinger (Live Deployment)
-________________________________________
- Key Features
-•	Multi-file ordering — upload multiple design files with individual quantities in one order (unique vs competitors)
-•	Gerber file viewer — interactive PCB preview with precise 0.1mm dimension accuracy
-•	3D model viewer — 360° rotation so customers verify designs before manufacturing
-•	Razorpay integration — UPI, netbanking, debit/credit cards, account transfer
-•	Dual authentication — Google OAuth and email/password login
-•	Admin dashboard — order tracking, status updates, customer management
-•	Live and maintained — actively running in production with real customers
-________________________________________
- My Role
+This platform moved the entire ordering workflow online - bringing the business to customers instead of the other way around.
+
+---
+
+ -> Tech Stack
+
+-> Frontend       : React, TypeScript, JavaScript
+-> Backend        : Node.js, REST APIs
+-> Database       : MySQL, Prisma ORM
+-> Payments       : Razorpay (UPI, cards, netbanking, account transfer)
+-> Auth           : Google OAuth, Email/Password
+-> File Handling  : Multi-file upload, Gerber viewer, 3D model viewer
+-> Deployment     : Hostinger (live and maintained)
+-> Other          : Python (file processing utilities)
+
+---
+
+ -> System Architecture
+
+    Customer Browser
+          |
+          v
+    React Frontend (TypeScript)
+          |
+          -> File Upload (Gerber / STL / DXF files)
+          -> Gerber Viewer (PCB preview with 0.1mm accuracy)
+          -> 3D Model Viewer (360 degree preview)
+          -> Order and Payment UI
+          |
+          v
+    Node.js Backend (REST APIs)
+          |
+          -> Authentication (Google OAuth + Email/Password)
+          -> Order Management
+          -> File Processing (Python utilities)
+          -> Razorpay Payment Gateway
+          |
+          v
+    MySQL Database (via Prisma ORM)
+          |
+          v
+    Hostinger (Live Deployment)
+
+---
+
+ -> Key Features
+
+-> Multi-file ordering - upload multiple design files with individual quantities in one order (unique vs competitors)
+-> Gerber file viewer - interactive PCB preview with precise 0.1mm dimension accuracy
+-> 3D model viewer - 360 degree rotation so customers verify designs before manufacturing
+-> Razorpay integration - UPI, netbanking, debit/credit cards, account transfer
+-> Dual authentication - Google OAuth and email/password login
+-> Admin dashboard - order tracking, status updates, customer management
+-> Live and maintained - actively running in production with real customers
+
+---
+
+ -> My Role
+
 I was the sole developer on this project during my internship. My responsibilities included:
-•	Designed and built the complete system architecture from scratch
-•	Developed the full backend — REST APIs, database schema, business logic
-•	Built the React + TypeScript frontend — all pages, components, and user flows
-•	Integrated Razorpay payment gateway — handling all payment modes
-•	Built the custom Gerber file viewer with 0.1mm rendering accuracy
-•	Integrated 3D model viewer for pre-order design verification
-•	Set up Google OAuth and email/password authentication
-•	Deployed the application on Hostinger and configured the server
-•	Currently actively maintaining the live system — monitoring, bug fixes, and updates
-________________________________________
- Deployment
-The platform is live and in production, serving real customers for a prototyping services company in India.
-This is a private commercial project. Source code is not publicly available, but I am happy to walk through the architecture and implementation in detail during interviews.
-________________________________________
- What I Learned
-•	End-to-end ownership of a production system — from design to deployment to maintenance
-•	Handling real-world engineering problems (Gerber file parsing, dimension accuracy, concurrent users)
-•	Payment gateway integration in a live commerce environment
-•	The difference between building something and owning something
-________________________________________
-Contact
-Prajwal — ECE Final Year, Dayananda Sagar University, Bengaluru
-Open to AI/ML Engineer and Full Stack roles
-www.linkedin.com/in/prajwal4552 · prajwalshetty4552@gamil.com
 
+-> Designed and built the complete system architecture from scratch
+-> Developed the full backend - REST APIs, database schema, business logic
+-> Built the React and TypeScript frontend - all pages, components, and user flows
+-> Integrated Razorpay payment gateway - handling all payment modes
+-> Built the custom Gerber file viewer with 0.1mm rendering accuracy
+-> Integrated 3D model viewer for pre-order design verification
+-> Set up Google OAuth and email/password authentication
+-> Deployed the application on Hostinger and configured the server
+-> Currently actively maintaining the live system - monitoring, bug fixes, and updates
+
+---
+
+ -> Deployment
+
+The platform is live and in production, serving real customers for a prototyping services company in India.
+
+Note: This is a private commercial project. Source code is not publicly available, but I am happy to walk through the architecture and implementation in detail during interviews.
+
+---
+
+ -> What I Learned
+
+-> End-to-end ownership of a production system - from design to deployment to maintenance
+-> Handling real-world engineering problems (Gerber file parsing, dimension accuracy, concurrent users)
+-> Payment gateway integration in a live commerce environment
+-> The difference between building something and owning something
+
+---
+
+ -> Contact
+
+Prajwal - ECE Final Year, Dayananda Sagar University, Bengaluru
+Open to AI/ML Engineer and Full Stack roles
+LinkedIn: www.linkedin.com/in/prajwal4552
+Email: prajwalshetty4552@gmail.com
